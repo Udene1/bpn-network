@@ -1,0 +1,71 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id                String    @id @default(uuid())
+  bvn               String    @unique
+  phoneNumber       String    @unique
+  fullName          String
+  biometricTemplate BiometricTemplate?
+  accounts          BankAccount[]
+  transactions      Transaction[]
+  createdAt         DateTime  @default(now())
+}
+
+model BiometricTemplate {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id])
+  templateHash  String   // AES-256 encrypted template
+  version       String   @default("1.0")
+  updatedAt     DateTime @updatedAt
+}
+
+model BankAccount {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  bankCode      String
+  accountNumber String
+  accountName   String
+  isDefault     Boolean  @default(false)
+  mandateId     String?
+}
+
+model Transaction {
+  id            String   @id @default(uuid())
+  amount        Float
+  currency      String   @default("NGN")
+  status        String   // PENDING, COMPLETED, FAILED
+  sellerId      String
+  buyerId       String?
+  buyer         User?    @relation(fields: [buyerId], references: [id])
+  bankReference String?  @unique
+  description   String?
+  createdAt     DateTime @default(now())
+}
+
+model Session {
+  id            String   @id @default(uuid())
+  token         String   @unique
+  sellerId      String
+  amount        Float
+  expiresAt     DateTime
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String   // ENROLL, PAY, CONSENT, LOGIN
+  details   String?
+  createdAt DateTime @default(now())
+}
