@@ -1,14 +1,23 @@
 import Fastify from 'fastify';
 import { PrismaClient } from '@prisma/client';
 import { BiometricService } from './services/biometric.service.js';
-import { AnchorService } from './services/anchor.service.js';
+import { PaymentService } from './services/payment.service.js';
 import { AuthService } from './services/auth.service.js';
+import { RedisService } from './services/redis.service.js';
+import { FraudService } from './services/fraud.service.js';
 
 const fastify = Fastify({ logger: true });
 const prisma = new PrismaClient();
 
-// ─── Auth Middleware ───────────────────────────────────────────
+// ─── Rate Limiting & Auth Middleware ──────────────────────────
 fastify.addHook('preHandler', async (request, reply) => {
+  // Global API Rate Limiting (20 requests/minute per IP)
+  const ip = request.ip;
+  const reqCount = await RedisService.increment(`ratelimit:${ip}`, 60);
+  if (reqCount > 20) {
+    return reply.status(429).send({ error: 'Too many requests. Please try again later.' });
+  }
+
   const publicRoutes = ['/invoice', '/login'];
   if (publicRoutes.includes(request.routerPath)) return;
 
@@ -28,7 +37,20 @@ fastify.post('/login', async (request) => {
 });
 
 // ─── POST /enroll ─────────────────────────────────────────────
-fastify.post('/enroll', async (request, reply) => {
+const enrollSchema = {
+  body: {
+    type: 'object',
+    required: ['bvn', 'fullName', 'phoneNumber', 'template'],
+    properties: {
+      bvn: { type: 'string', minLength: 11, maxLength: 11 },
+      fullName: { type: 'string' },
+      phoneNumber: { type: 'string' },
+      template: { type: 'string' },
+      bankAccounts: { type: 'array' }
+    }
+  }
+};
+fastify.post('/enroll', { schema: enrollSchema }, async (request, reply) => {
   const { bvn, fullName, phoneNumber, template, bankAccounts } = request.body as any;
 
   if (!bvn || bvn.length !== 11) return reply.status(400).send({ error: 'Invalid BVN (must be 11 digits)' });
@@ -61,28 +83,43 @@ fastify.post('/enroll', async (request, reply) => {
 });
 
 // ─── POST /invoice ────────────────────────────────────────────
-fastify.post('/invoice', async (request) => {
+const invoiceSchema = {
+  body: {
+    type: 'object',
+    required: ['sellerId', 'amount'],
+    properties: {
+      sellerId: { type: 'string' },
+      amount: { type: 'number', minimum: 1 }
+    }
+  }
+};
+fastify.post('/invoice', { schema: invoiceSchema }, async (request) => {
   const { sellerId, amount } = request.body as any;
+  const sessionToken = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-  const session = await prisma.session.create({
-    data: {
-      sellerId,
-      amount,
-      token: Math.random().toString(36).substring(2, 8).toUpperCase(),
-      expiresAt: new Date(Date.now() + 120 * 1000), // 120s
-    },
-  });
+  // Store transient session in Redis (120s expiry)
+  await RedisService.set(`session:${sessionToken}`, { sellerId, amount }, 120);
 
-  return { token: session.token, sellerId, amount, expiresAt: session.expiresAt };
+  return { token: sessionToken, sellerId, amount, expiresAt: new Date(Date.now() + 120 * 1000) };
 });
 
-// ─── POST /pay ────────────────────────────────────────────────
-fastify.post('/pay', async (request, reply) => {
+// ─── POST /match-and-pay ──────────────────────────────────────
+const paySchema = {
+  body: {
+    type: 'object',
+    required: ['sessionToken', 'capturedTemplate'],
+    properties: {
+      sessionToken: { type: 'string' },
+      capturedTemplate: { type: 'string' }
+    }
+  }
+};
+fastify.post('/match-and-pay', { schema: paySchema }, async (request, reply) => {
   const { sessionToken, capturedTemplate } = request.body as any;
 
-  // 1. Look up session
-  const session = await prisma.session.findUnique({ where: { token: sessionToken } });
-  if (!session || session.expiresAt < new Date()) {
+  // 1. Look up session in Redis
+  const session = await RedisService.get(`session:${sessionToken}`);
+  if (!session) {
     return reply.status(404).send({ error: 'Session expired or not found' });
   }
 
@@ -98,15 +135,25 @@ fastify.post('/pay', async (request, reply) => {
 
   if (!matchedUser) return reply.status(401).send({ error: 'Biometric match failed' });
 
+  // ─── FRAUD ENGINE CHECK ───
+  const fraudResult = await FraudService.performChecks(matchedUser.id, matchedUser.bvn, session.amount);
+  if (!fraudResult.safe) {
+    await prisma.auditLog.create({
+      data: { userId: matchedUser.id, action: 'FRAUD_BLOCK', details: fraudResult.reason }
+    });
+    return reply.status(403).send({ error: `Transaction Blocked: ${fraudResult.reason}` });
+  }
+
   const account = matchedUser.accounts[0];
   if (!account) return reply.status(400).send({ error: 'No linked bank account' });
 
   // 3. Initiate transfer via Anchor BaaS
-  const result = await AnchorService.transfer({
+  const result = await PaymentService.initiateTransfer({
     amount: session.amount,
-    source_account: account.accountNumber,
-    destination_account: '0012345678', // Seller's account (would come from seller profile)
-    destination_bank_code: '044',
+    sourceAccount: account.accountNumber,
+    destinationAccount: '0012345678', // Seller's account
+    destinationBankCode: '044',
+    sourceBankCode: '044',
     narration: `BPN Payment – Session ${sessionToken}`,
   });
 
@@ -131,8 +178,24 @@ fastify.post('/pay', async (request, reply) => {
     status: txn.status,
     reference: txn.bankReference,
     buyerName: matchedUser.fullName,
+    buyerBank: account.bankCode,
+    buyerAccount: account.accountNumber,
     amount: session.amount,
   };
+});
+
+// ─── GET /health ─────────────────────────────────────────────
+fastify.get('/health', async (request, reply) => {
+  const dbStatus = await prisma.$queryRaw`SELECT 1`.then(() => 'UP').catch(() => 'DOWN');
+  const redisStatus = RedisService.isConnected() ? 'UP' : 'DOWN';
+  
+  const status = dbStatus === 'UP' && redisStatus === 'UP' ? 200 : 503;
+  return reply.status(status).send({
+    status: status === 200 ? 'HEALTHY' : 'UNHEALTHY',
+    database: dbStatus,
+    redis: redisStatus,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // ─── GET /transactions ────────────────────────────────────────
@@ -147,6 +210,7 @@ fastify.get('/transactions', async (request) => {
 // ─── Server Start ─────────────────────────────────────────────
 const start = async () => {
   try {
+    await RedisService.init();
     await fastify.listen({ port: 3000, host: '0.0.0.0' });
     console.log('BPN Backend running on http://localhost:3000');
   } catch (err) {

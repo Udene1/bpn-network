@@ -13,39 +13,64 @@ export default function POSScreen() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [buyerName, setBuyerName] = useState('');
 
+  const BACKEND_URL = 'http://localhost:3000'; // Change to actual network IP when testing on real device
+  
   const handlePayment = async () => {
-    setIsWaiting(true);
-    setStatus('Ready for Buyer Fingerprint...');
-    
-    // 1. Capture biometric from the sensor on the seller's phone
-    const signature = await BiometricSensor.captureFingerprint(`Confirm payment of ₦${amount}`);
-    
-    if (signature) {
-      setStatus('Identifying Buyer...');
+    try {
+      setIsWaiting(true);
+      setStatus('Generating Invoice...');
+
+      // 1. Get session token from backend
+      const invoiceRes = await fetch(`${BACKEND_URL}/invoice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sellerId: 'S-777', amount: parseFloat(amount) })
+      });
+      const invoiceData = await invoiceRes.json();
       
-      // 2. Mock Backend Match call
-      // In reality: const { buyerName } = await api.post('/pay', { capturedTemplate: signature, ... })
-      setTimeout(() => {
-        setBuyerName('John Doe'); // Mocked result from backend
-        setShowConfirm(true);
+      if (!invoiceData.token) {
+        throw new Error('Failed to create invoice');
+      }
+
+      setStatus('Ready for Buyer Fingerprint...');
+      
+      // 2. Capture biometric from the sensor on the seller's phone
+      const signature = await BiometricSensor.captureFingerprint(`Confirm payment of ₦${amount}`, invoiceData.token);
+      
+      if (signature) {
+        setStatus('Identifying Buyer & Processing...');
+        
+        // 3. Backend Match and Pay call
+        const payRes = await fetch(`${BACKEND_URL}/match-and-pay`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionToken: invoiceData.token, capturedTemplate: signature })
+        });
+        const payData = await payRes.json();
+
+        if (payRes.ok && payData.status !== 'FAILED') {
+          setBuyerName(`${payData.buyerName} (${payData.buyerBank || 'Bank'})`);
+          setShowConfirm(true); // Wait, if the transaction is already created, we just show a successful receipt
+          setIsWaiting(false);
+          setStatus(`Payment Successful! ₦${amount} received from ${payData.buyerName}.`);
+        } else {
+          setIsWaiting(false);
+          setStatus(`Failed: ${payData.error || 'Unknown error'}`);
+        }
+      } else {
         setIsWaiting(false);
-        setStatus('');
-      }, 1500);
-    } else {
+        setStatus('Biometric verification cancelled or failed.');
+      }
+    } catch (e: any) {
       setIsWaiting(false);
-      setStatus('Biometric verification cancelled or failed.');
+      setStatus(`Error: ${e.message}`);
     }
   };
 
   const confirmTransfer = async () => {
-    setIsWaiting(true);
-    setStatus('Processing Bank Transfer via Anchor...');
-    
-    setTimeout(() => {
-      setIsWaiting(false);
-      setShowConfirm(false);
-      setStatus('Payment Successful! ₦' + amount + ' received.');
-    }, 2000);
+    // Left for backwards UI compatibility if the receipt needs a dismiss button
+    setIsWaiting(false);
+    setShowConfirm(false);
   };
 
   return (

@@ -40,9 +40,14 @@ export class BiometricService {
   static async match(capturedSignature: string, userId: string, storedEncryptedTemplate: string): Promise<{ success: boolean; score: number }> {
     const decryptedTemplate = this.decryptTemplate(storedEncryptedTemplate);
     
+    // NIBSS BVN INTEGRATION PLACEHOLDER:
+    // In production, we would use the captured biometric template and the user's BVN
+    // to call the NIBSS Biometric API for verification, roughly like:
+    // const nibssResult = await nibssClient.verify({ bvn: user.bvn, template: capturedSignature });
+    // return { success: nibssResult.isMatch, score: nibssResult.confidenceScore };
+    
     // MOCK MATCHING LOGIC
-    // In a production fintech app, 'capturedSignature' would be verified using the public key
-    // registered during enrollment. Or, if using raw templates, a Minutiae-based matching algorithm.
+    // Using a simple decrypted comparison or a mock success signature for testing
     const isMatch = capturedSignature === decryptedTemplate || capturedSignature === 'MOCK_SUCCESS_SIG';
     
     return {

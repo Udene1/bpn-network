@@ -24,7 +24,7 @@ export class BiometricSensor {
    * In a real Android implementation, we might use this to sign a challenge 
    * string that the backend can verify.
    */
-  static async captureFingerprint(promptMessage: string = 'Scan your fingerprint to pay'): Promise<string | null> {
+  static async captureFingerprint(promptMessage: string = 'Scan your fingerprint to pay', sessionToken: string = 'bpn-session-auth'): Promise<string | null> {
     try {
       const isAvailable = await this.checkAvailability();
       if (!isAvailable) {
@@ -34,7 +34,7 @@ export class BiometricSensor {
 
       const { success, signature, error } = await this.rnBiometrics.createSignature({
         promptMessage,
-        payload: 'bpn-session-auth' // Use session token here in production
+        payload: sessionToken
       });
 
       if (success && signature) {
