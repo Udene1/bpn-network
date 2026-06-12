@@ -5,6 +5,14 @@ import { BiometricSensor } from '../api/biometric.sensor';
 /**
  * EnrollmentScreen handles the buyer's one-time enrollment process.
  */
+const NIGERIAN_BANKS = [
+  { label: 'Access Bank', value: '044' },
+  { label: 'First Bank', value: '011' },
+  { label: 'GTBank', value: '058' },
+  { label: 'UBA', value: '033' },
+  { label: 'Zenith Bank', value: '057' },
+];
+
 export default function EnrollmentScreen() {
   const [step, setStep] = useState(1);
   const [bvn, setBvn] = useState('');
@@ -19,6 +27,10 @@ export default function EnrollmentScreen() {
       Alert.alert('Validation Error', 'BVN must be exactly 11 digits.');
       return;
     }
+    if (step === 2 && (bankCode === '' || accountNumber.length !== 10)) {
+      Alert.alert('Validation Error', 'Please select a bank and enter a 10-digit account number.');
+      return;
+    }
     setStep(step + 1);
   };
 
@@ -28,7 +40,6 @@ export default function EnrollmentScreen() {
       return;
     }
 
-    // 1. Capture fingerprint signature during enrollment
     const signature = await BiometricSensor.captureFingerprint('Enroll your fingerprint to secure BPN');
     
     if (!signature) {
@@ -39,13 +50,12 @@ export default function EnrollmentScreen() {
     setIsEnrolling(true);
 
     try {
-      // 2. API call to /enroll with full user data
       const payload = {
         bvn,
-        fullName: 'Buyer User', // Hardcoded mock since no input is provided
-        phoneNumber: '08012345678', // Hardcoded mock
+        fullName: fullName || 'New User',
+        phoneNumber: '080' + Math.floor(Math.random() * 100000000), // Mock phone
         template: signature,
-        bankAccounts: [{ bankCode, accountNumber, accountName: 'Buyer User' }]
+        bankAccounts: [{ bankCode, accountNumber, accountName: fullName || 'New User' }]
       };
 
       const res = await fetch('http://localhost:3000/enroll', {
@@ -58,74 +68,88 @@ export default function EnrollmentScreen() {
       setIsEnrolling(false);
 
       if (res.ok && data.status === 'SUCCESS') {
-        Alert.alert("Success", "Account Linked Successfully with Biometrics");
-        // E.g., navigation.navigate('Settings');
+        Alert.alert("Enrollment Complete", "Your biometric identity is now securely linked to your bank account.", [
+          { text: "Go to Settings", onPress: () => setStep(1) } // Mock redirect
+        ]);
       } else {
-        Alert.alert("Error", data.error || "Failed to enroll");
+        throw new Error(data.error || "Enrollment failed");
       }
     } catch (e: any) {
       setIsEnrolling(false);
-      Alert.alert("Error", e.message);
+      Alert.alert("Technical Error", e.message);
     }
   };
 
   return (
     <View style={styles.container}>
+      <Text style={styles.header}>BPN Enrollment</Text>
+
       {step === 1 && (
-        <View>
-          <Text style={styles.title}>Step 1: Verify Identity</Text>
+        <View style={styles.card}>
+          <Text style={styles.stepTitle}>1. Identity Verification</Text>
+          <Text style={styles.label}>Bank Verification Number (BVN)</Text>
           <TextInput 
-            placeholder="Enter 11-digit BVN" 
+            placeholder="00000000000" 
             style={styles.input} 
             value={bvn}
             onChangeText={setBvn}
             keyboardType="numeric"
+            maxLength={11}
           />
-          <Button title="Verify BVN" onPress={nextStep} />
+          <Text style={styles.helper}>We use this to verify your legal identity with NIBSS.</Text>
+          <Button title="Verify Identity" onPress={nextStep} color="#1A237E" />
         </View>
       )}
 
       {step === 2 && (
-        <View>
-          <Text style={styles.title}>Step 2: Link Bank Account</Text>
+        <View style={styles.card}>
+          <Text style={styles.stepTitle}>2. Link Bank Account</Text>
+          <Text style={styles.label}>Select your Bank</Text>
+          <View style={styles.bankPicker}>
+             {NIGERIAN_BANKS.map(bank => (
+               <Button 
+                key={bank.value} 
+                title={bank.label} 
+                onPress={() => setBankCode(bank.value)} 
+                color={bankCode === bank.value ? '#1A237E' : '#ccc'} 
+               />
+             ))}
+          </View>
+          
+          <Text style={styles.label}>Account Number</Text>
           <TextInput 
-            placeholder="Select Bank (Code)" 
-            style={styles.input}
-            value={bankCode}
-            onChangeText={setBankCode}
-          />
-          <TextInput 
-            placeholder="Account Number" 
+            placeholder="0011223344" 
             style={styles.input}
             value={accountNumber}
             onChangeText={setAccountNumber}
             keyboardType="numeric"
+            maxLength={10}
           />
-          <Button title="Continue" onPress={nextStep} />
+          <Button title="Continue to Biometrics" onPress={nextStep} color="#1A237E" />
         </View>
       )}
 
       {step === 3 && (
         <View style={styles.biometricContainer}>
-          <Text style={styles.title}>Step 3: Capture Biometrics</Text>
+          <Text style={styles.stepTitle}>3. Secure Biometric Link</Text>
           <View style={styles.fingerprintIcon}>
-            <Text style={{fontSize: 50}}>👆</Text>
+             <Text style={{fontSize: 60}}>🧬</Text>
           </View>
-          <Text style={{textAlign: 'center', marginBottom: 20}}>
-            Please place your finger on the sensor on this device to link your biometric identity.
+          <Text style={styles.instruction}>
+            Place your thumb on the sensor to create your unique payment signature.
           </Text>
 
           <View style={styles.consentRow}>
-            <Switch value={consent} onValueChange={setConsent} />
+            <Switch value={consent} onValueChange={setConsent} trackColor={{true: '#1A237E'}} />
             <Text style={styles.consentText}>
-              I consent to the capture and encrypted storage of my biometric template under the NDPR.
+              I authorize BPN to store an encrypted hash of my biometric for payment authorization (NDPR Compliant).
             </Text>
           </View>
 
           {isEnrolling ? (
-            <ActivityIndicator size="large" color="#2E7D32" />
+            <ActivityIndicator size="large" color="#1A237E" />
           ) : (
-            <Button title="Complete Enrollment" onPress={handleEnroll} color="#2E7D32" />
+            <Button title="Create Secure Identity" onPress={handleEnroll} color="#2E7D32" />
           )}
         </View>
       )}
@@ -134,11 +158,17 @@ export default function EnrollmentScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, justifyContent: 'center' },
-  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 20 },
-  input: { borderBottomWidth: 1, marginBottom: 20, padding: 10 },
-  biometricContainer: { alignItems: 'center' },
-  fingerprintIcon: { width: 100, height: 100, backgroundColor: '#f0f0f0', borderRadius: 50, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  consentRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 30, paddingHorizontal: 10 },
-  consentText: { marginLeft: 10, flex: 1, fontSize: 13, color: '#444' }
+  container: { flex: 1, padding: 20, backgroundColor: '#FAF9F6', justifyContent: 'center' },
+  header: { fontSize: 26, fontWeight: 'bold', marginBottom: 30, color: '#1A237E', textAlign: 'center' },
+  card: { backgroundColor: '#fff', padding: 20, borderRadius: 12, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
+  stepTitle: { fontSize: 18, fontWeight: '700', marginBottom: 20, color: '#333' },
+  label: { fontSize: 13, color: '#666', marginBottom: 8, marginTop: 10 },
+  input: { borderBottomWidth: 1, borderColor: '#eee', marginBottom: 15, padding: 12, fontSize: 18, fontWeight: '600' },
+  helper: { fontSize: 12, color: '#999', marginBottom: 20 },
+  bankPicker: { marginBottom: 20 },
+  biometricContainer: { alignItems: 'center', backgroundColor: '#fff', padding: 30, borderRadius: 12 },
+  fingerprintIcon: { width: 120, height: 120, backgroundColor: '#f5f5f5', borderRadius: 60, justifyContent: 'center', alignItems: 'center', marginBottom: 30 },
+  instruction: { textAlign: 'center', marginBottom: 30, color: '#555', lineHeight: 20 },
+  consentRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 30, paddingHorizontal: 5 },
+  consentText: { marginLeft: 12, flex: 1, fontSize: 12, color: '#777' }
 });

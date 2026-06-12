@@ -11,14 +11,15 @@ export default function POSScreen() {
   const [status, setStatus] = useState('');
 
   const [showConfirm, setShowConfirm] = useState(false);
-  const [buyerName, setBuyerName] = useState('');
+  const [receipt, setReceipt] = useState<any>(null);
 
   const BACKEND_URL = 'http://localhost:3000'; // Change to actual network IP when testing on real device
   
   const handlePayment = async () => {
     try {
       setIsWaiting(true);
-      setStatus('Generating Invoice...');
+      setReceipt(null);
+      setStatus('Initializing Secure Session...');
 
       // 1. Get session token from backend
       const invoiceRes = await fetch(`${BACKEND_URL}/invoice`, {
@@ -26,19 +27,23 @@ export default function POSScreen() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sellerId: 'S-777', amount: parseFloat(amount) })
       });
-      const invoiceData = await invoiceRes.json();
       
-      if (!invoiceData.token) {
-        throw new Error('Failed to create invoice');
+      if (!invoiceRes.ok) {
+        const errorData = await invoiceRes.json();
+        throw new Error(errorData.error || 'Connection failed');
       }
 
-      setStatus('Ready for Buyer Fingerprint...');
+      const invoiceData = await invoiceRes.json();
+      setStatus(`Session [${invoiceData.token}] - Ready for Print`);
       
       // 2. Capture biometric from the sensor on the seller's phone
-      const signature = await BiometricSensor.captureFingerprint(`Confirm payment of ₦${amount}`, invoiceData.token);
+      const signature = await BiometricSensor.captureFingerprint(
+        `Confirm payment of ₦${amount} (Token: ${invoiceData.token})`, 
+        invoiceData.token
+      );
       
       if (signature) {
-        setStatus('Identifying Buyer & Processing...');
+        setStatus('Verifying Identity & Requesting Bank Transfer...');
         
         // 3. Backend Match and Pay call
         const payRes = await fetch(`${BACKEND_URL}/match-and-pay`, {
@@ -46,75 +51,74 @@ export default function POSScreen() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sessionToken: invoiceData.token, capturedTemplate: signature })
         });
+        
         const payData = await payRes.json();
 
         if (payRes.ok && payData.status !== 'FAILED') {
-          setBuyerName(`${payData.buyerName} (${payData.buyerBank || 'Bank'})`);
-          setShowConfirm(true); // Wait, if the transaction is already created, we just show a successful receipt
+          setReceipt({
+            buyer: payData.buyerName,
+            bank: payData.buyerBank,
+            ref: payData.reference,
+            amount: amount,
+            date: new Date().toLocaleString()
+          });
           setIsWaiting(false);
-          setStatus(`Payment Successful! ₦${amount} received from ${payData.buyerName}.`);
+          setStatus('');
+        } else if (payRes.status === 404) {
+          throw new Error('Session Expired. Please try again.');
         } else {
-          setIsWaiting(false);
-          setStatus(`Failed: ${payData.error || 'Unknown error'}`);
+          throw new Error(payData.error || 'Payment failed');
         }
       } else {
         setIsWaiting(false);
-        setStatus('Biometric verification cancelled or failed.');
+        setStatus('Biometric cancelled.');
       }
     } catch (e: any) {
       setIsWaiting(false);
       setStatus(`Error: ${e.message}`);
+      Alert.alert('POS Error', e.message);
     }
-  };
-
-  const confirmTransfer = async () => {
-    // Left for backwards UI compatibility if the receipt needs a dismiss button
-    setIsWaiting(false);
-    setShowConfirm(false);
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.header}>BPN Seller POS</Text>
       
-      {!isWaiting && !status.includes('Successful') && !showConfirm && (
+      {!isWaiting && !receipt && (
         <View>
-          <Text style={styles.label}>Enter Sale Amount (₦)</Text>
+          <Text style={styles.label}>Sale Amount (₦)</Text>
           <TextInput 
             style={styles.amountInput}
             value={amount}
             onChangeText={setAmount}
             placeholder="0.00"
             keyboardType="numeric"
+            autoFocus
           />
-          <Button title="Process Biometric Payment" onPress={handlePayment} />
-        </View>
-      )}
-
-      {showConfirm && (
-        <View style={styles.confirmBox}>
-          <Text style={styles.confirmTitle}>Confirm Payment</Text>
-          <Text style={styles.confirmText}>Pay ₦{amount} from {buyerName}?</Text>
-          <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
-            <Button title="Cancel" onPress={() => setShowConfirm(false)} color="red" />
-            <Button title="Confirm & Transfer" onPress={confirmTransfer} color="#2E7D32" />
-          </View>
+          <Button title="Collect Biometric Payment" onPress={handlePayment} color="#1A237E" />
+          {status !== '' && <Text style={styles.errorText}>{status}</Text>}
         </View>
       )}
 
       {isWaiting && (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#0000ff" />
+          <ActivityIndicator size="large" color="#1A237E" />
           <Text style={styles.statusText}>{status}</Text>
-          <Text style={{color: 'gray'}}>Buyer: Please tap the sensor on this phone</Text>
+          <Text style={styles.subStatus}>Please ask buyer to tap the sensor</Text>
         </View>
       )}
 
-      {status.includes('Successful') && (
-        <View style={styles.center}>
-          <Text style={{fontSize: 40}}>✅</Text>
-          <Text style={styles.successText}>{status}</Text>
-          <Button title="New Transaction" onPress={() => { setAmount(''); setStatus(''); }} />
+      {receipt && (
+        <View style={styles.receiptBox}>
+          <Text style={styles.receiptHeader}>PAYMENT SUCCESSFUL</Text>
+          <View style={styles.divider} />
+          <Text style={styles.receiptRow}>Amount: <Text style={styles.bold}>₦{receipt.amount}</Text></Text>
+          <Text style={styles.receiptRow}>Buyer: {receipt.buyer}</Text>
+          <Text style={styles.receiptRow}>Bank: {receipt.bank}</Text>
+          <Text style={styles.receiptRow}>Ref: {receipt.ref}</Text>
+          <Text style={styles.receiptRow}>Time: {receipt.date}</Text>
+          <View style={styles.divider} />
+          <Button title="Dismiss Receipt" onPress={() => { setAmount(''); setReceipt(null); }} color="#2E7D32" />
         </View>
       )}
     </View>
@@ -122,11 +126,17 @@ export default function POSScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: '#fff' },
-  header: { fontSize: 28, fontWeight: 'bold', marginBottom: 40, color: '#1A237E' },
-  label: { fontSize: 16, marginBottom: 10 },
-  amountInput: { fontSize: 32, borderBottomWidth: 2, borderColor: '#1A237E', marginBottom: 40, padding: 10 },
-  center: { alignItems: 'center', justifyContent: 'center', marginTop: 50 },
-  statusText: { fontSize: 18, marginTop: 20, fontWeight: '500' },
-  successText: { fontSize: 20, color: '#2E7D32', fontWeight: 'bold', marginVertical: 20 }
+  container: { flex: 1, padding: 20, backgroundColor: '#FAF9F6' },
+  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 40, color: '#1A237E', textAlign: 'center' },
+  label: { fontSize: 14, color: '#666', marginBottom: 5 },
+  amountInput: { fontSize: 48, fontWeight: 'bold', borderBottomWidth: 2, borderColor: '#1A237E', marginBottom: 40, padding: 10, textAlign: 'center' },
+  center: { alignItems: 'center', justifyContent: 'center', marginTop: 100 },
+  statusText: { fontSize: 18, marginTop: 20, fontWeight: '600', color: '#1A237E', textAlign: 'center' },
+  subStatus: { fontSize: 14, color: '#666', marginTop: 10 },
+  errorText: { color: 'red', marginTop: 20, textAlign: 'center' },
+  receiptBox: { backgroundColor: '#fff', padding: 20, borderRadius: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 5 },
+  receiptHeader: { fontSize: 20, fontWeight: 'bold', color: '#2E7D32', textAlign: 'center', marginBottom: 10 },
+  receiptRow: { fontSize: 16, marginVertical: 5, color: '#333' },
+  bold: { fontWeight: 'bold' },
+  divider: { height: 1, backgroundColor: '#eee', marginVertical: 15 }
 });

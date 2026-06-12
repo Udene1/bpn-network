@@ -43,6 +43,11 @@ export class RedisService {
     return count;
   }
 
+  static async del(key: string) {
+    if (!this.connected) return;
+    await this.client.del(key);
+  }
+
   static isConnected(): boolean {
     return this.connected;
   }

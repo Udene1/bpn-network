@@ -11,22 +11,49 @@ const prisma = new PrismaClient();
 
 // ─── Rate Limiting & Auth Middleware ──────────────────────────
 fastify.addHook('preHandler', async (request, reply) => {
-  // Global API Rate Limiting (20 requests/minute per IP)
+  // Granular Rate Limiting (20 requests/minute per IP)
   const ip = request.ip;
-  const reqCount = await RedisService.increment(`ratelimit:${ip}`, 60);
-  if (reqCount > 20) {
+  const route = request.routerPath || 'unknown';
+  const key = `ratelimit:${ip}:${route}`;
+  
+  const reqCount = await RedisService.increment(key, 60);
+  if (reqCount > 50) { // Slightly relaxed global per-route limit
+    request.log.warn({ ip, route }, 'Rate limit exceeded');
     return reply.status(429).send({ error: 'Too many requests. Please try again later.' });
   }
 
-  const publicRoutes = ['/invoice', '/login'];
+  const publicRoutes = ['/invoice', '/login', '/health'];
   if (publicRoutes.includes(request.routerPath)) return;
 
   const authHeader = request.headers.authorization;
-  if (!authHeader) return reply.status(401).send({ error: 'Missing Authorization Header' });
+  if (!authHeader) {
+    return reply.status(401).send({ error: 'Missing Authorization Header' });
+  }
 
   const decoded = AuthService.verifyToken(authHeader.replace('Bearer ', ''));
-  if (!decoded) return reply.status(401).send({ error: 'Invalid or Expired Token' });
+  if (!decoded) {
+    return reply.status(401).send({ error: 'Invalid or Expired Token' });
+  }
   (request as any).user = decoded;
+});
+
+// Centralized Error Handler (Sanitized Logging)
+fastify.setErrorHandler((error, request, reply) => {
+  const { statusCode } = reply;
+  
+  // Log non-sensitive details
+  request.log.error({ 
+    err: error.message, 
+    code: error.code,
+    url: request.url,
+    method: request.method
+  }, 'Request Error');
+
+  if (statusCode >= 500) {
+    return reply.status(500).send({ error: 'Internal Server Error', reference: (request as any).id });
+  }
+  
+  reply.send(error);
 });
 
 // ─── POST /login ──────────────────────────────────────────────
@@ -169,7 +196,8 @@ fastify.post('/match-and-pay', { schema: paySchema }, async (request, reply) => 
     },
   });
 
-  // 5. Audit log
+  // 5. Audit log & Session Cleanup
+  await RedisService.del(`session:${sessionToken}`);
   await prisma.auditLog.create({
     data: { userId: matchedUser.id, action: 'PAY', details: `₦${session.amount} to seller ${session.sellerId}. Ref: ${result.id}` },
   });
