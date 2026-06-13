@@ -1,0 +1,90 @@
+{
+	"info": {
+		"name": "BPN Biometric Payment Network",
+		"description": "API collection for BPN Backend services including Enrollment and POS matching.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "System",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"url": "{{baseUrl}}/health"
+					}
+				}
+			]
+		},
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"phoneNumber\": \"+2348000000000\"\n}"
+						},
+						"url": "{{baseUrl}}/login"
+					}
+				}
+			]
+		},
+		{
+			"name": "Buyer Operations",
+			"item": [
+				{
+					"name": "Enroll User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwtToken}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bvn\": \"12345678901\",\n    \"fullName\": \"John Doe\",\n    \"phoneNumber\": \"+2348000000000\",\n    \"template\": \"mock-biometric-minutiae-v1\",\n    \"bankAccounts\": [\n        { \"bankCode\": \"044\", \"accountNumber\": \"0011223344\" }\n    ]\n}"
+						},
+						"url": "{{baseUrl}}/enroll"
+					}
+				}
+			]
+		},
+		{
+			"name": "POS Operations",
+			"item": [
+				{
+					"name": "Create Invoice",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"sellerId\": \"S-777\",\n    \"amount\": 5000\n}"
+						},
+						"url": "{{baseUrl}}/invoice"
+					}
+				},
+				{
+					"name": "Match and Pay",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"sessionToken\": \"ABCDEF\",\n    \"capturedTemplate\": \"mock-biometric-minutiae-v1\"\n}"
+						},
+						"url": "{{baseUrl}}/match-and-pay"
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{ "key": "baseUrl", "value": "http://localhost:3000" },
+		{ "key": "jwtToken", "value": "" }
+	]
+}

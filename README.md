@@ -45,3 +45,13 @@ npm test
 # Integration Flow
 node tests/full-flow.js
 ```
+
+## Documentation & Troubleshooting
+
+### Mobile Biometric Troubleshooting (Android)
+- Ensure the device has at least one fingerprint enrolled in System Settings.
+- If using an emulator, use the extended controls -> Fingerprint to simulate a scan.
+- BPN requires `android.permission.USE_BIOMETRIC`.
+
+### API Collection
+You can find a Postman-compatible API collection in [docs/bpn_api_collection.json](docs/bpn_api_collection.json). Import it to test enrollment and payment flows manually.

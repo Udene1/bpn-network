@@ -22,7 +22,7 @@ fastify.addHook('preHandler', async (request, reply) => {
     return reply.status(429).send({ error: 'Too many requests. Please try again later.' });
   }
 
-  const publicRoutes = ['/invoice', '/login', '/health'];
+  const publicRoutes = ['/invoice', '/login', '/health', '/webhook/anchor'];
   if (publicRoutes.includes(request.routerPath)) return;
 
   const authHeader = request.headers.authorization;
@@ -32,6 +32,7 @@ fastify.addHook('preHandler', async (request, reply) => {
 
   const decoded = AuthService.verifyToken(authHeader.replace('Bearer ', ''));
   if (!decoded) {
+    request.log.warn({ authHeader }, 'Invalid JWT attempted');
     return reply.status(401).send({ error: 'Invalid or Expired Token' });
   }
   (request as any).user = decoded;
@@ -210,6 +211,32 @@ fastify.post('/match-and-pay', { schema: paySchema }, async (request, reply) => 
     buyerAccount: account.accountNumber,
     amount: session.amount,
   };
+});
+
+// ─── POST /webhook/anchor ──────────────────────────────────────
+// This endpoint receives transaction status updates from Anchor BaaS.
+fastify.post('/webhook/anchor', async (request, reply) => {
+  const { event, data } = request.body as any;
+  
+  // In production, verify the webhook signature here:
+  // const sig = request.headers['x-anchor-signature'];
+  // if (!WebhookService.verify(request.rawBody, sig)) return reply.status(401).send();
+
+  if (event === 'transfer.updated') {
+    const { id, status } = data;
+    
+    // Map Anchor statuses to BPN statuses
+    const bpnStatus = status === 'successful' ? 'COMPLETED' : 'FAILED';
+    
+    const transaction = await prisma.transaction.update({
+      where: { bankReference: id },
+      data: { status: bpnStatus }
+    });
+
+    request.log.info({ txnId: transaction.id, status: bpnStatus }, 'Transaction updated via webhook');
+  }
+
+  return { received: true };
 });
 
 // ─── GET /health ─────────────────────────────────────────────

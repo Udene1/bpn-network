@@ -40,6 +40,16 @@ async function runTest() {
     const historyRes = await axios.get(`${BASE_URL}/transactions`, { headers });
     console.log('Last TXNs count:', historyRes.data.length);
 
+    console.log('\n--- Phase 6: Failed Biometric Payment (Wrong Template) ---');
+    try {
+      await axios.post(`${BASE_URL}/match-and-pay`, {
+        sessionToken,
+        capturedTemplate: 'wrong-template-6789'
+      }, { headers });
+    } catch (e) {
+      console.log('Payment Rejected (Expected):', e.response?.data?.error);
+    }
+
   } catch (error) {
     console.error('Test Failed:', error.response?.data || error.message);
   }
