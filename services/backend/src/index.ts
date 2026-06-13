@@ -196,7 +196,7 @@ fastify.post('/match-and-pay', { schema: paySchema }, async (request, reply) => 
   // 4. Record transaction
   const txn = await prisma.transaction.create({
     data: {
-      userId: matchedUser.id,
+      buyerId: matchedUser.id,
       amount: session.amount,
       sellerId: session.sellerId,
       status: 'PENDING',
