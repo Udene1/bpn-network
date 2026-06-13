@@ -104,19 +104,20 @@ export default function EnrollmentScreen() {
       {step === 2 && (
         <View style={styles.card}>
           <Text style={styles.stepTitle}>2. Link Bank Account</Text>
-          <Text style={styles.label}>Select your Bank</Text>
-          <View style={styles.bankPicker}>
+          <Text style={styles.label}>Select your Settlement Bank</Text>
+          <View style={styles.bankGrid}>
              {NIGERIAN_BANKS.map(bank => (
-               <Button 
+               <TouchableOpacity 
                 key={bank.value} 
-                title={bank.label} 
                 onPress={() => setBankCode(bank.value)} 
-                color={bankCode === bank.value ? '#1A237E' : '#ccc'} 
-               />
+                style={[styles.bankItem, bankCode === bank.value && styles.bankItemActive]}
+               >
+                 <Text style={[styles.bankText, bankCode === bank.value && styles.bankTextActive]}>{bank.label}</Text>
+               </TouchableOpacity>
              ))}
           </View>
           
-          <Text style={styles.label}>Account Number</Text>
+          <Text style={styles.label}>10-Digit Account Number</Text>
           <TextInput 
             placeholder="0011223344" 
             style={styles.input}
@@ -125,7 +126,9 @@ export default function EnrollmentScreen() {
             keyboardType="numeric"
             maxLength={10}
           />
-          <Button title="Continue to Biometrics" onPress={nextStep} color="#1A237E" />
+          <View style={{marginTop: 10}}>
+            <Button title="Continue to Biometrics" onPress={nextStep} color="#1A237E" />
+          </View>
         </View>
       )}
 
@@ -165,7 +168,11 @@ const styles = StyleSheet.create({
   label: { fontSize: 13, color: '#666', marginBottom: 8, marginTop: 10 },
   input: { borderBottomWidth: 1, borderColor: '#eee', marginBottom: 15, padding: 12, fontSize: 18, fontWeight: '600' },
   helper: { fontSize: 12, color: '#999', marginBottom: 20 },
-  bankPicker: { marginBottom: 20 },
+  bankGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
+  bankItem: { padding: 10, borderWidth: 1, borderColor: '#eee', borderRadius: 8, minWidth: '45%' },
+  bankItemActive: { borderColor: '#1A237E', backgroundColor: 'rgba(26, 35, 126, 0.05)' },
+  bankText: { textAlign: 'center', fontSize: 12, color: '#666' },
+  bankTextActive: { color: '#1A237E', fontWeight: 'bold' },
   biometricContainer: { alignItems: 'center', backgroundColor: '#fff', padding: 30, borderRadius: 12 },
   fingerprintIcon: { width: 120, height: 120, backgroundColor: '#f5f5f5', borderRadius: 60, justifyContent: 'center', alignItems: 'center', marginBottom: 30 },
   instruction: { textAlign: 'center', marginBottom: 30, color: '#555', lineHeight: 20 },

@@ -59,6 +59,13 @@ async function runTest() {
       log(`Payment Rejected (Expected): ${e.response?.data?.error}`);
     }
 
+    log('\n--- Phase 7: Merchant Dashboard APIs ---');
+    const statsRes = await axios.get(`${BASE_URL}/merchant/stats`, { headers });
+    log(`Merchant Stats: ${JSON.stringify(statsRes.data)}`);
+    
+    const merchantTxRes = await axios.get(`${BASE_URL}/merchant/transactions`, { headers });
+    log(`Merchant Transactions Count: ${merchantTxRes.data.length}`);
+
     log('\n✅ **Full E2E Flow Completed Successfully**');
 
   } catch (error) {
