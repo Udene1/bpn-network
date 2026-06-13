@@ -151,6 +151,14 @@ fastify.post('/match-and-pay', { schema: paySchema }, async (request, reply) => 
     return reply.status(404).send({ error: 'Session expired or not found' });
   }
 
+  // Per-Session Rate Limiting (5 attempts max)
+  const sessionKey = `attemps:${sessionToken}`;
+  const attempts = await RedisService.increment(sessionKey, 300); // 5 min window
+  if (attempts > 5) {
+    request.log.warn({ sessionToken }, 'Brute force suspected on POS Session');
+    return reply.status(429).send({ error: 'Too many failed attempts. Session locked.' });
+  }
+
   // 2. Biometric match against all enrolled users
   const allUsers = await prisma.user.findMany({ include: { biometricTemplate: true, accounts: true } });
 
@@ -188,19 +196,25 @@ fastify.post('/match-and-pay', { schema: paySchema }, async (request, reply) => 
   // 4. Record transaction
   const txn = await prisma.transaction.create({
     data: {
+      userId: matchedUser.id,
       amount: session.amount,
-      status: result.status,
       sellerId: session.sellerId,
-      buyerId: matchedUser.id,
-      bankReference: result.id,
-      description: `BPN POS Payment`,
+      status: 'PENDING',
+      bankReference: 'REF-' + Math.random().toString(36).substring(7).toUpperCase(),
     },
   });
+
+  request.log.info({ 
+    txnId: txn.id, 
+    buyerId: matchedUser.id, 
+    sellerId: session.sellerId, 
+    amount: session.amount 
+  }, 'Transaction Authorized');
 
   // 5. Audit log & Session Cleanup
   await RedisService.del(`session:${sessionToken}`);
   await prisma.auditLog.create({
-    data: { userId: matchedUser.id, action: 'PAY', details: `₦${session.amount} to seller ${session.sellerId}. Ref: ${result.id}` },
+    data: { userId: matchedUser.id, action: 'PAY', details: `₦${session.amount} to seller ${session.sellerId}. Ref: ${txn.bankReference}` },
   });
 
   return {

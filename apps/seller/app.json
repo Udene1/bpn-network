@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "BPN Seller",
+    "slug": "bpn-seller",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "com.udene.bpnseller",
+      "permissions": [
+        "USE_BIOMETRIC",
+        "INTERNET",
+        "CAMERA"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": {
+            "scheme": "bpn"
+          }
+        }
+      ]
+    },
+    "plugins": [
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow BPN to use biometrics to secure payments."
+        }
+      ]
+    ]
+  }
+}

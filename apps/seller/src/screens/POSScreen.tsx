@@ -12,16 +12,33 @@ export default function POSScreen() {
 
   const [showConfirm, setShowConfirm] = useState(false);
   const [receipt, setReceipt] = useState<any>(null);
+  const [timer, setTimer] = useState<number>(0);
+  const [currentToken, setCurrentToken] = useState<string>('');
 
-  const BACKEND_URL = 'http://localhost:3000'; // Change to actual network IP when testing on real device
+  const BACKEND_URL = 'http://localhost:3000'; 
+
+  // Session Timer Effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prev) => prev - 1);
+      }, 1000);
+    } else if (timer === 0 && isWaiting && currentToken) {
+      setIsWaiting(false);
+      setStatus('Session Expired');
+      Alert.alert('Session Timeout', 'The payment session has expired. Please create a new invoice.');
+    }
+    return () => clearInterval(interval);
+  }, [timer, isWaiting, currentToken]);
   
   const handlePayment = async () => {
     try {
       setIsWaiting(true);
       setReceipt(null);
       setStatus('Initializing Secure Session...');
+      setTimer(120); // Start 120s countdown
 
-      // 1. Get session token from backend
       const invoiceRes = await fetch(`${BACKEND_URL}/invoice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -29,27 +46,39 @@ export default function POSScreen() {
       });
       
       if (!invoiceRes.ok) {
+        setTimer(0);
         const errorData = await invoiceRes.json();
         throw new Error(errorData.error || 'Connection failed');
       }
 
       const invoiceData = await invoiceRes.json();
-      setStatus(`Session [${invoiceData.token}] - Ready for Print`);
+      setCurrentToken(invoiceData.token);
+      triggerBiometric(invoiceData.token);
       
-      // 2. Capture biometric from the sensor on the seller's phone
+    } catch (e: any) {
+      setIsWaiting(false);
+      setTimer(0);
+      setStatus(`Error: ${e.message}`);
+      Alert.alert('POS Error', e.message);
+    }
+  };
+
+  const triggerBiometric = async (token: string) => {
+    try {
+      setStatus(`Session [${token}] - Waiting for Biometric...`);
+      
       const signature = await BiometricSensor.captureFingerprint(
-        `Confirm payment of ₦${amount} (Token: ${invoiceData.token})`, 
-        invoiceData.token
+        `Confirm payment of ₦${amount} (Token: ${token})`, 
+        token
       );
       
       if (signature) {
         setStatus('Verifying Identity & Requesting Bank Transfer...');
         
-        // 3. Backend Match and Pay call
         const payRes = await fetch(`${BACKEND_URL}/match-and-pay`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionToken: invoiceData.token, capturedTemplate: signature })
+          body: JSON.stringify({ sessionToken: token, capturedTemplate: signature })
         });
         
         const payData = await payRes.json();
@@ -63,20 +92,22 @@ export default function POSScreen() {
             date: new Date().toLocaleString()
           });
           setIsWaiting(false);
+          setTimer(0);
           setStatus('');
-        } else if (payRes.status === 404) {
-          throw new Error('Session Expired. Please try again.');
         } else {
-          throw new Error(payData.error || 'Payment failed');
+          throw new Error(payData.error || 'Payment rejected by bank');
         }
       } else {
-        setIsWaiting(false);
-        setStatus('Biometric cancelled.');
+        setStatus('Authentication Cancelled. You can retry below.');
       }
     } catch (e: any) {
-      setIsWaiting(false);
       setStatus(`Error: ${e.message}`);
-      Alert.alert('POS Error', e.message);
+    }
+  };
+
+  const retryScan = () => {
+    if (currentToken && timer > 0) {
+      triggerBiometric(currentToken);
     }
   };
 
@@ -102,9 +133,22 @@ export default function POSScreen() {
 
       {isWaiting && (
         <View style={styles.center}>
+          <View style={styles.timerCircle}>
+             <Text style={styles.timerText}>{timer}s</Text>
+          </View>
           <ActivityIndicator size="large" color="#1A237E" />
           <Text style={styles.statusText}>{status}</Text>
-          <Text style={styles.subStatus}>Please ask buyer to tap the sensor</Text>
+          <Text style={styles.subStatus}>Ask buyer to tap the sensor on this device</Text>
+          
+          {!status.includes('Verifying') && timer > 0 && (
+            <View style={{marginTop: 30}}>
+              <Button title="Retry Biometric Scan" onPress={retryScan} color="#1A237E" />
+            </View>
+          )}
+
+          <TouchableOpacity style={styles.cancelBtn} onPress={() => { setIsWaiting(false); setTimer(0); }}>
+            <Text style={{color: 'red'}}>Cancel Transaction</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -116,9 +160,8 @@ export default function POSScreen() {
           <Text style={styles.receiptRow}>Buyer: {receipt.buyer}</Text>
           <Text style={styles.receiptRow}>Bank: {receipt.bank}</Text>
           <Text style={styles.receiptRow}>Ref: {receipt.ref}</Text>
-          <Text style={styles.receiptRow}>Time: {receipt.date}</Text>
-          <View style={styles.divider} />
-          <Button title="Dismiss Receipt" onPress={() => { setAmount(''); setReceipt(null); }} color="#2E7D32" />
+          <Text style={styles.divider} />
+          <Button title="New Transaction" onPress={() => { setAmount(''); setReceipt(null); setStatus(''); }} color="#2E7D32" />
         </View>
       )}
     </View>
@@ -130,13 +173,16 @@ const styles = StyleSheet.create({
   header: { fontSize: 24, fontWeight: 'bold', marginBottom: 40, color: '#1A237E', textAlign: 'center' },
   label: { fontSize: 14, color: '#666', marginBottom: 5 },
   amountInput: { fontSize: 48, fontWeight: 'bold', borderBottomWidth: 2, borderColor: '#1A237E', marginBottom: 40, padding: 10, textAlign: 'center' },
-  center: { alignItems: 'center', justifyContent: 'center', marginTop: 100 },
-  statusText: { fontSize: 18, marginTop: 20, fontWeight: '600', color: '#1A237E', textAlign: 'center' },
-  subStatus: { fontSize: 14, color: '#666', marginTop: 10 },
+  center: { alignItems: 'center', justifyContent: 'center', marginTop: 50 },
+  timerCircle: { width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: '#1A237E', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  timerText: { fontSize: 18, color: '#1A237E', fontWeight: 'bold' },
+  statusText: { fontSize: 16, marginTop: 20, color: '#1A237E', textAlign: 'center', paddingHorizontal: 20 },
+  subStatus: { fontSize: 13, color: '#666', marginTop: 10 },
   errorText: { color: 'red', marginTop: 20, textAlign: 'center' },
-  receiptBox: { backgroundColor: '#fff', padding: 20, borderRadius: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 5 },
-  receiptHeader: { fontSize: 20, fontWeight: 'bold', color: '#2E7D32', textAlign: 'center', marginBottom: 10 },
-  receiptRow: { fontSize: 16, marginVertical: 5, color: '#333' },
+  cancelBtn: { marginTop: 40 },
+  receiptBox: { backgroundColor: '#fff', padding: 25, borderRadius: 15, elevation: 5 },
+  receiptHeader: { fontSize: 20, fontWeight: 'bold', color: '#2E7D32', textAlign: 'center', marginBottom: 15 },
+  receiptRow: { fontSize: 16, marginVertical: 6, color: '#444' },
   bold: { fontWeight: 'bold' },
   divider: { height: 1, backgroundColor: '#eee', marginVertical: 15 }
 });
