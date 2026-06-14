@@ -68,9 +68,13 @@ export default function EnrollmentScreen() {
       setIsEnrolling(false);
 
       if (res.ok && data.status === 'SUCCESS') {
-        Alert.alert("Enrollment Complete", "Your biometric identity is now securely linked to your bank account.", [
-          { text: "Go to Settings", onPress: () => setStep(1) } // Mock redirect
-        ]);
+        if (data.redirectUrl) {
+          setStep(4);
+        } else {
+          Alert.alert("Enrollment Complete", "Your biometric identity is now securely linked to your bank account.", [
+            { text: "OK", onPress: () => setStep(1) }
+          ]);
+        }
       } else {
         throw new Error(data.error || "Enrollment failed");
       }
@@ -154,6 +158,31 @@ export default function EnrollmentScreen() {
           ) : (
             <Button title="Create Secure Identity" onPress={handleEnroll} color="#2E7D32" />
           )}
+        </View>
+      )}
+
+      {step === 4 && (
+        <View style={styles.card}>
+          <Text style={styles.stepTitle}>4. Bank Authorization</Text>
+          <View style={{ padding: 20, backgroundColor: '#f0f4ff', borderRadius: 8, marginBottom: 20 }}>
+            <Text style={{ fontSize: 14, color: '#1A237E', fontWeight: 'bold' }}>Direct Debit Mandate</Text>
+            <Text style={{ fontSize: 12, color: '#555', marginTop: 10 }}>
+              You are authorizing BPN to pull funds for verified biometric payments (Limit: ₦50,000/txn).
+            </Text>
+          </View>
+          
+          <Text style={styles.instruction}>
+            In a live environment, you would now be redirected to your bank's secure portal to enter an OTP.
+          </Text>
+
+          <Button 
+            title="Settle Mandate & Finish" 
+            onPress={() => {
+              Alert.alert("Success", "Mandate authorized. Your account is active!");
+              setStep(1);
+            }} 
+            color="#1A237E" 
+          />
         </View>
       )}
     </View>

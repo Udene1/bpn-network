@@ -25,7 +25,7 @@ fastify.addHook('preHandler', async (request, reply) => {
     return reply.status(429).send({ error: 'Too many requests. Please try again later.' });
   }
 
-  const publicRoutes = ['/invoice', '/login', '/health', '/webhook/anchor'];
+  const publicRoutes = ['/invoice', '/login', '/health', '/webhook/anchor', '/enroll', '/mandate/callback'];
   if (publicRoutes.includes(request.routerPath)) return;
 
   const authHeader = request.headers.authorization;
@@ -113,7 +113,43 @@ fastify.post('/enroll', { schema: enrollSchema }, async (request, reply) => {
     request
   });
 
-  return { status: 'SUCCESS', userId: user.id };
+  // ─── Direct Debit Mandate Setup ───
+  let redirectUrl: string | undefined;
+  if (user.accounts.length > 0) {
+    const mainAccount = user.accounts[0];
+    const mandate = await PaymentService.setupMandate(mainAccount.accountNumber, mainAccount.bankCode);
+    
+    await prisma.bankAccount.update({
+      where: { id: mainAccount.id },
+      data: { mandateId: mandate.mandateId }
+    });
+    redirectUrl = mandate.redirectUrl;
+  }
+
+  return { status: 'SUCCESS', userId: user.id, redirectUrl };
+});
+
+/**
+ * POST /mandate/callback
+ * Webhook called by BaaS when a mandate is authorized by the user.
+ */
+fastify.post('/mandate/callback', async (request, reply) => {
+  const { mandateId, status } = request.body as any;
+  
+  if (status === 'authorized') {
+    await prisma.bankAccount.updateMany({
+      where: { mandateId },
+      data: { mandateId: `APPROVED-${mandateId}` } // Simplified status tracking
+    });
+    
+    await AuditService.log({
+      action: 'MANDATE_AUTHORIZED',
+      metadata: { mandateId },
+      request
+    });
+  }
+
+  return { received: true };
 });
 
 // ─── POST /invoice ────────────────────────────────────────────

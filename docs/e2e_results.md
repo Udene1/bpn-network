@@ -345,3 +345,39 @@ Reversal Result: {
 ✅ Reversal event recorded in Audit Log.
 
 ✅ **Compliance & Audit Verification Completed**
+
+
+========================================
+# Direct Debit Mandate Flow Verification - 14/6/2026, 12:48:00 am
+
+--- Phase 1: Enrollment with Mandate Trigger ---
+
+❌ **Mandate Flow Test Failed**: Missing Authorization Header
+
+
+========================================
+# Direct Debit Mandate Flow Verification - 14/6/2026, 12:48:14 am
+
+--- Phase 1: Enrollment with Mandate Trigger ---
+
+❌ **Mandate Flow Test Failed**: 
+
+
+========================================
+# Direct Debit Mandate Flow Verification - 14/6/2026, 12:48:49 am
+
+--- Phase 1: Enrollment with Mandate Trigger ---
+Enrollment Response: {
+  "status": "SUCCESS",
+  "userId": "4391becf-085c-4b0a-b606-be85dd70bbd7",
+  "redirectUrl": "https://sandbox.getanchor.co/authorize-mandate?ref=bpn-test"
+}
+✅ Enrollment correctly returned Mandate Redirect URL.
+
+--- Phase 2: Mandate Callback (Webhook) ---
+Callback Response: {
+  "received": true
+}
+✅ Mandate callback endpoint is active.
+
+✅ **Mandate Flow Verification Completed Successfully**
