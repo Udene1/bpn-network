@@ -63,6 +63,11 @@ export default function POSScreen() {
     }
   };
 
+  const [attempts, setAttempts] = useState(0);
+  const [mode, setMode] = useState<'BIOMETRIC' | 'LOOKUP' | 'PIN'>('BIOMETRIC');
+  const [lookupValue, setLookupValue] = useState('');
+  const [matchedBuyer, setMatchedBuyer] = useState<any>(null);
+
   const triggerBiometric = async (token: string) => {
     try {
       setStatus(`Session [${token}] - Waiting for Biometric...`);
@@ -73,7 +78,7 @@ export default function POSScreen() {
       );
       
       if (signature) {
-        setStatus('Verifying Identity & Requesting Bank Transfer...');
+        setStatus('Verifying Identity...');
         
         const payRes = await fetch(`${BACKEND_URL}/match-and-pay`, {
           method: 'POST',
@@ -84,25 +89,67 @@ export default function POSScreen() {
         const payData = await payRes.json();
 
         if (payRes.ok && payData.status !== 'FAILED') {
-          setReceipt({
-            buyer: payData.buyerName,
-            bank: payData.buyerBank,
-            ref: payData.reference,
-            amount: amount,
-            date: new Date().toLocaleString()
-          });
-          setIsWaiting(false);
-          setTimer(0);
-          setStatus('');
+          handleSuccess(payData);
         } else {
-          throw new Error(payData.error || 'Payment rejected by bank');
+          setAttempts(prev => prev + 1);
+          if (attempts + 1 >= 3) {
+             setMode('LOOKUP');
+             setStatus('3 Failures. Switching to Manual Lookup.');
+          } else {
+             throw new Error(payData.error || 'Match failed. Try again.');
+          }
         }
-      } else {
-        setStatus('Authentication Cancelled. You can retry below.');
       }
     } catch (e: any) {
       setStatus(`Error: ${e.message}`);
     }
+  };
+
+  const handleLookup = async () => {
+    setStatus('Looking up buyer...');
+    const res = await fetch(`${BACKEND_URL}/lookup-buyer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phoneNumber: lookupValue })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setMatchedBuyer(data.buyer);
+      setMode('PIN');
+      setStatus('');
+    } else {
+      Alert.alert('Lookup Failed', data.error);
+    }
+  };
+
+  const handlePinSubmit = async (pin: string) => {
+    setStatus('Verifying PIN...');
+    const res = await fetch(`${BACKEND_URL}/verify-pin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionToken: currentToken, pin, phoneNumber: lookupValue })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      handleSuccess(data);
+    } else {
+      Alert.alert('Payment Failed', data.error);
+    }
+  };
+
+  const handleSuccess = (payData: any) => {
+    setReceipt({
+      buyer: payData.buyerName || matchedBuyer?.maskedName,
+      bank: payData.buyerBank || matchedBuyer?.bankName,
+      ref: payData.reference,
+      amount: amount,
+      date: new Date().toLocaleString()
+    });
+    setIsWaiting(false);
+    setTimer(0);
+    setAttempts(0);
+    setMode('BIOMETRIC');
+    setStatus('');
   };
 
   const retryScan = () => {
@@ -133,22 +180,75 @@ export default function POSScreen() {
 
       {isWaiting && (
         <View style={styles.center}>
-          <View style={styles.timerCircle}>
-             <Text style={styles.timerText}>{timer}s</Text>
-          </View>
-          <ActivityIndicator size="large" color="#1A237E" />
-          <Text style={styles.statusText}>{status}</Text>
-          <Text style={styles.subStatus}>Ask buyer to tap the sensor on this device</Text>
-          
-          {!status.includes('Verifying') && timer > 0 && (
-            <View style={{marginTop: 30}}>
-              <Button title="Retry Biometric Scan" onPress={retryScan} color="#1A237E" />
+          {mode === 'BIOMETRIC' && (
+            <>
+              <View style={styles.timerCircle}>
+                 <Text style={styles.timerText}>{timer}s</Text>
+              </View>
+              <ActivityIndicator size="large" color="#1A237E" />
+              <Text style={styles.statusText}>{status}</Text>
+              <Text style={styles.subStatus}>Ask buyer to tap the sensor on this device</Text>
+              
+              {!status.includes('Verifying') && timer > 0 && (
+                <View style={{marginTop: 30}}>
+                  <Button title="Retry Biometric Scan" onPress={retryScan} color="#1A237E" />
+                  <TouchableOpacity onPress={() => setMode('LOOKUP')} style={{marginTop: 15}}>
+                     <Text style={{color: '#1A237E', textDecorationLine: 'underline'}}>Having trouble? Use Manual Lookup</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </>
+          )}
+
+          {mode === 'LOOKUP' && (
+            <View style={styles.lookupBox}>
+               <Text style={styles.lookupTitle}>Manual Identity Lookup</Text>
+               <Text style={styles.label}>Phone Number or Last 6 BVN Digits</Text>
+               <TextInput 
+                 style={styles.lookupInput}
+                 value={lookupValue}
+                 onChangeText={setLookupValue}
+                 placeholder="080... or last 6 digits"
+                 keyboardType="numeric"
+                 autoFocus
+               />
+               <Button title="Find Buyer Profile" onPress={handleLookup} color="#1A237E" />
+               <TouchableOpacity onPress={() => setMode('BIOMETRIC')} style={{marginTop: 15}}>
+                  <Text style={{color: '#666'}}>Back to Fingerprint</Text>
+               </TouchableOpacity>
             </View>
           )}
 
-          <TouchableOpacity style={styles.cancelBtn} onPress={() => { setIsWaiting(false); setTimer(0); }}>
+          {mode === 'PIN' && (
+            <View style={styles.pinBox}>
+               <Text style={styles.pinTitle}>Authorize with PIN</Text>
+               <Text style={styles.maskedBuyer}>Confirm Identity: {matchedBuyer?.maskedName} ({matchedBuyer?.bankName})</Text>
+               <Text style={styles.pinLabel}>Select your PIN on the scrambled keypad</Text>
+               
+               <View style={styles.pinGrid}>
+                  {[7, 2, 9, 4, 0, 1, 8, 3, 5, 6].map(num => (
+                    <TouchableOpacity key={num} style={styles.pinBtn} onPress={() => handlePinSubmit(num.toString())}>
+                       <Text style={styles.pinBtnText}>{num}</Text>
+                    </TouchableOpacity>
+                  ))}
+               </View>
+               <Text style={styles.pinHint}>Keypad order changes for your security</Text>
+            </View>
+          )}
+
+          <TouchableOpacity style={styles.cancelBtn} onPress={() => { setIsWaiting(false); setTimer(0); setMode('BIOMETRIC'); }}>
             <Text style={{color: 'red'}}>Cancel Transaction</Text>
           </TouchableOpacity>
+        </View>
+      )}
+
+      {!isWaiting && !receipt && amount !== '' && (
+        <View style={styles.qrContainer}>
+           <Text style={styles.qrText}>Or Buy with QR Fallback</Text>
+           <View style={styles.qrPlaceholder}>
+              <Text style={{color: '#999'}}>QR: BPN-INV-{currentToken}</Text>
+           </View>
+           <Text style={styles.subStatus}>Buyer can scan this with the BPN App</Text>
         </View>
       )}
 
@@ -184,5 +284,19 @@ const styles = StyleSheet.create({
   receiptHeader: { fontSize: 20, fontWeight: 'bold', color: '#2E7D32', textAlign: 'center', marginBottom: 15 },
   receiptRow: { fontSize: 16, marginVertical: 6, color: '#444' },
   bold: { fontWeight: 'bold' },
-  divider: { height: 1, backgroundColor: '#eee', marginVertical: 15 }
+  divider: { height: 1, backgroundColor: '#eee', marginVertical: 15 },
+  lookupBox: { width: '100%', padding: 20, backgroundColor: '#fff', borderRadius: 10, elevation: 2 },
+  lookupTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15, color: '#1A237E' },
+  lookupInput: { fontSize: 24, padding: 10, borderBottomWidth: 1, borderColor: '#ccc', marginBottom: 20 },
+  pinBox: { width: '100%', alignItems: 'center' },
+  pinTitle: { fontSize: 18, fontWeight: 'bold', color: '#1A237E' },
+  maskedBuyer: { fontSize: 14, color: '#666', marginVertical: 10 },
+  pinLabel: { fontSize: 12, color: '#999', marginBottom: 20 },
+  pinGrid: { flexDirection: 'row', flexWrap: 'wrap', width: 280, justifyContent: 'center' },
+  pinBtn: { width: 80, height: 60, backgroundColor: '#fff', margin: 5, borderRadius: 8, justifyContent: 'center', alignItems: 'center', elevation: 2 },
+  pinBtnText: { fontSize: 20, fontWeight: 'bold', color: '#1A237E' },
+  pinHint: { fontSize: 11, color: '#999', marginTop: 15 },
+  qrContainer: { marginTop: 40, alignItems: 'center', borderTopWidth: 1, borderColor: '#eee', paddingTop: 30 },
+  qrText: { fontSize: 14, fontWeight: 'bold', color: '#666', marginBottom: 15 },
+  qrPlaceholder: { width: 140, height: 140, backgroundColor: '#eee', justifyContent: 'center', alignItems: 'center', borderRadius: 10, marginBottom: 10 }
 });

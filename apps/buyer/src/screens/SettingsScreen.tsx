@@ -52,8 +52,19 @@ export default function SettingsScreen() {
         />
       </View>
 
-      <View style={{ marginTop: 30 }}>
-        <Button title="Save Settings" onPress={handleSave} color="#1A237E" />
+      <Text style={[styles.header, { fontSize: 18, marginTop: 20 }]}>Recovery & Safety</Text>
+      
+      <View style={styles.inputGroup}>
+         <Button 
+          title="Injury: Re-Enroll Fingerprint" 
+          onPress={() => Alert.alert("Injury Flow", "This will trigger an OTP to your recovery phone +234••••••78. Proceed?")} 
+          color="#D32F2F" 
+         />
+         <Text style={styles.settingDesc}>Use this if you cannot use your registered finger.</Text>
+      </View>
+
+      <View style={{ marginTop: 20 }}>
+        <Button title="Save All Settings" onPress={handleSave} color="#1A237E" />
       </View>
     </View>
   );

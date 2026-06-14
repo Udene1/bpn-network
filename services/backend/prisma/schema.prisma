@@ -21,6 +21,8 @@ model User {
   bvn               String    @unique
   phoneNumber       String    @unique
   fullName          String
+  pinHash           String?   // Hashed numeric PIN
+  recoveryPhone     String?   // For OTP fallback
   biometricTemplate BiometricTemplate?
   accounts          BankAccount[]
   transactions      Transaction[]

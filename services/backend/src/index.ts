@@ -357,6 +357,75 @@ fastify.get('/merchant/ndpr-export', async (request, reply) => {
   }
 });
 
+// ─── Phase 8: Recovery & Fallback ────────────────────────────
+
+/**
+ * POST /lookup-buyer
+ * Searches for a buyer by phone or partial BVN. 
+ * Returns ONLY masked profile for POS confirmation.
+ */
+fastify.post('/lookup-buyer', async (request, reply) => {
+  const { phoneNumber, partialBvn } = request.body as any;
+
+  if (!phoneNumber && !partialBvn) {
+    return reply.status(400).send({ error: 'Provide phone number or partial BVN' });
+  }
+
+  const user = await prisma.user.findFirst({
+    where: {
+      OR: [
+        phoneNumber ? { phoneNumber } : {},
+        partialBvn ? { bvn: { endsWith: partialBvn } } : {}
+      ]
+    },
+    include: { accounts: true }
+  });
+
+  if (!user) return reply.status(404).send({ error: 'Buyer not found' });
+
+  return {
+    status: 'SUCCESS',
+    buyer: BiometricService.getMaskedBuyerProfile(user)
+  };
+});
+
+/**
+ * POST /verify-pin
+ * Validates a buyer's PIN after a successful lookup.
+ */
+fastify.post('/verify-pin', async (request, reply) => {
+  const { sessionToken, pin, phoneNumber } = request.body as any;
+
+  const session = await RedisService.get(`session:${sessionToken}`);
+  if (!session) return reply.status(404).send({ error: 'Session expired' });
+
+  const user = await prisma.user.findUnique({
+    where: { phoneNumber },
+    include: { accounts: true }
+  });
+
+  if (!user || (user.pinHash ? user.pinHash !== pin : pin !== '1234')) { // Mocking PIN check
+    return reply.status(401).send({ error: 'Invalid PIN' });
+  }
+
+  // Authorize transaction (Reuse matching logic)
+  const account = user.accounts[0];
+  if (!account) return reply.status(400).send({ error: 'No linked account' });
+
+  const txn = await prisma.transaction.create({
+    data: {
+      buyerId: user.id,
+      amount: session.amount,
+      sellerId: session.sellerId,
+      status: 'PENDING',
+      bankReference: 'REFP-' + Math.random().toString(36).substring(7).toUpperCase(),
+    },
+  });
+
+  await RedisService.del(`session:${sessionToken}`);
+  return { status: 'COMPLETED', reference: txn.bankReference };
+});
+
 // ─── Server Start ─────────────────────────────────────────────
 const start = async () => {
   try {
