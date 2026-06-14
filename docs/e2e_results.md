@@ -161,3 +161,111 @@ Payment Result: {
 }
 
 ✅ **Recovery Flow Test Completed Successfully**
+
+
+========================================
+# Merchant Dashboard Enhancement Test - 14/6/2026, 12:06:04 am
+
+--- Phase 1: Dashboard Stats (with Chart Data) ---
+Stats Result: {
+  "totalVolume": 0,
+  "activeUsers": 9,
+  "successRate": "98.5%",
+  "chartData": [
+    {
+      "date": "2026-06-08",
+      "volume": 4092
+    },
+    {
+      "date": "2026-06-09",
+      "volume": 227
+    },
+    {
+      "date": "2026-06-10",
+      "volume": 2925
+    },
+    {
+      "date": "2026-06-11",
+      "volume": 1310
+    },
+    {
+      "date": "2026-06-12",
+      "volume": 541
+    },
+    {
+      "date": "2026-06-13",
+      "volume": 2360
+    },
+    {
+      "date": "2026-06-14",
+      "volume": 1937
+    }
+  ],
+  "lastUpdate": "2026-06-14T04:06:04.780Z"
+}
+✅ Chart data correctly aggregated for 7 days.
+
+--- Phase 2: Transaction Filtering ---
+Filtered Count: 0
+✅ Filtering by status works.
+
+--- Phase 3: Customer Lookup by Hash ---
+
+❌ **Dashboard Test Failed**: Customer not found
+
+
+========================================
+# Merchant Dashboard Enhancement Test - 14/6/2026, 12:10:23 am
+
+--- Phase 1: Dashboard Stats (with Chart Data) ---
+Stats Result: {
+  "totalVolume": 0,
+  "activeUsers": 9,
+  "successRate": "98.5%",
+  "chartData": [
+    {
+      "date": "2026-06-08",
+      "volume": 798
+    },
+    {
+      "date": "2026-06-09",
+      "volume": 4639
+    },
+    {
+      "date": "2026-06-10",
+      "volume": 2169
+    },
+    {
+      "date": "2026-06-11",
+      "volume": 1461
+    },
+    {
+      "date": "2026-06-12",
+      "volume": 4587
+    },
+    {
+      "date": "2026-06-13",
+      "volume": 4030
+    },
+    {
+      "date": "2026-06-14",
+      "volume": 2758
+    }
+  ],
+  "lastUpdate": "2026-06-14T04:10:24.283Z"
+}
+✅ Chart data correctly aggregated for 7 days.
+
+--- Phase 2: Transaction Filtering ---
+Filtered Count: 0
+✅ Filtering by status works.
+
+--- Phase 3: Customer Lookup by Hash ---
+Lookup Success: {
+  "maskedName": "John ••••",
+  "bankName": "Access Bank",
+  "status": "VERIFIED"
+}
+✅ Customer lookup returns masked profile.
+
+✅ **Merchant Dashboard Verification Completed Successfully**

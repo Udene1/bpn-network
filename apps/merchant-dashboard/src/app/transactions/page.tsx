@@ -3,18 +3,34 @@ import { useEffect, useState } from 'react';
 
 export default function TransactionsPage() {
   const [txns, setTxns] = useState<any[]>([]);
+  const [status, setStatus] = useState('');
 
   useEffect(() => {
-    fetch('http://localhost:3000/merchant/transactions')
+    fetch(`http://localhost:3000/merchant/transactions?status=${status}`)
       .then(res => res.json())
       .then(data => setTxns(data));
-  }, []);
+  }, [status]);
 
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-      <header style={{ marginBottom: '3rem' }}>
-        <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.5rem' }}>Transaction History</h1>
-        <p style={{ color: '#94a3b8' }}>Comprehensive log of all biometric payments across your network.</p>
+      <header style={{ marginBottom: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div>
+           <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.5rem' }}>Transaction History</h1>
+           <p style={{ color: '#94a3b8' }}>Comprehensive log of all biometric payments across your network.</p>
+        </div>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+           <select 
+             value={status} 
+             onChange={(e) => setStatus(e.target.value)}
+             className="glass"
+             style={{ padding: '0.5rem 1rem', background: 'var(--card-bg)', color: '#fff', border: '1px solid var(--glass-border)', borderRadius: '8px' }}
+           >
+              <option value="">All Statuses</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="PENDING">Pending</option>
+              <option value="FAILED">Failed</option>
+           </select>
+        </div>
       </header>
 
       <section className="glass" style={{ padding: '2rem' }}>

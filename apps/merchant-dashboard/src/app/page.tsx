@@ -54,6 +54,27 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <section className="glass" style={{ padding: '2rem', marginBottom: '3rem' }}>
+        <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '2rem' }}>7-Day Revenue Trend</h3>
+        <div style={{ height: 200, display: 'flex', alignItems: 'flex-end', gap: '5%', padding: '0 1rem' }}>
+          {stats.chartData?.map((day: any, i: number) => {
+            const height = (day.volume / (stats.totalVolume || 10000)) * 100 + 10;
+            return (
+              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ 
+                  width: '100%', 
+                  height: `${Math.min(height, 100)}%`, 
+                  background: 'linear-gradient(to top, var(--accent-primary), var(--accent-secondary))',
+                  borderRadius: '6px 6px 0 0',
+                  opacity: 0.8
+                }} />
+                <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{day.date.split('-')[2]}/{day.date.split('-')[1]}</span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
       <section className="glass" style={{ padding: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Recent Transactions</h3>
