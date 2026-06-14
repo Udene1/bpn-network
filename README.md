@@ -3,6 +3,20 @@
 BPN is a secure, NDPR-compliant, non-custodial biometric payment micro-network for Nigeria's informal economy. 
 It enables buyers to confirm transactions securely using fingerprint verification at merchant POS terminals without requiring cards, internet-connected smartphones, or NFC devices.
 
+## System Architecture & Flow
+
+```mermaid
+graph TD
+    A[Buyer App] -- Enrollment --> B(Fastify Backend)
+    A -- Consent & BVN --> B
+    C[Seller App] -- Invoice --> B
+    C -- Fingerprint Scan --> B
+    B -- Match & Verify --> D[(PostgreSQL / Redis)]
+    B -- Trigger Payout --> E[Anchor BaaS / NIP]
+    E -- Webhook Status --> B
+    B -- Analytics --> F[Merchant Dashboard]
+```
+
 ## Architecture
 
 1. **Buyer App (React Native)**

@@ -24,10 +24,13 @@ export class BiometricService {
    * Decrypts a biometric template.
    */
   static decryptTemplate(encryptedData: string): string {
-    const [ivHex, encrypted] = encryptedData.split(':');
-    const iv = Buffer.from(ivHex, 'hex');
+    const parts = encryptedData.split(':');
+    if (parts.length !== 2) throw new Error('Invalid encrypted data format');
+    
+    const [ivHex, encrypted] = parts;
+    const iv = Buffer.from(ivHex!, 'hex');
     const decipher = crypto.createDecipheriv(this.ALGORITHM, this.KEY, iv);
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    let decrypted = decipher.update(encrypted!, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     return decrypted;
   }
@@ -53,6 +56,31 @@ export class BiometricService {
     return {
       success: isMatch,
       score: isMatch ? 100 : 0
+    };
+  }
+
+  /**
+   * Returns a masked version of the buyer's profile for merchant display.
+   * Ensures NDPR compliance by minimizing shared PII.
+   */
+  static getMaskedBuyerProfile(user: any) {
+    const fullName = user.fullName || 'Unknown Buyer';
+    const firstPart = fullName.split(' ')[0];
+    const maskedName = `${firstPart} ••••`;
+    
+    const account = user.accounts?.[0] || {};
+    const bankMapping: Record<string, string> = {
+      '044': 'Access Bank',
+      '011': 'First Bank',
+      '058': 'GTBank',
+      '057': 'Zenith Bank',
+      '033': 'United Bank for Africa',
+    };
+
+    return {
+      maskedName,
+      bankName: bankMapping[account.bankCode] || 'Unknown Bank',
+      status: 'VERIFIED'
     };
   }
 }

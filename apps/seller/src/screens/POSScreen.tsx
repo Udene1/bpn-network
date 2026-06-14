@@ -157,7 +157,7 @@ export default function POSScreen() {
           <Text style={styles.receiptHeader}>PAYMENT SUCCESSFUL</Text>
           <View style={styles.divider} />
           <Text style={styles.receiptRow}>Amount: <Text style={styles.bold}>₦{receipt.amount}</Text></Text>
-          <Text style={styles.receiptRow}>Buyer: {receipt.buyer}</Text>
+          <Text style={styles.receiptRow}>Buyer: <Text style={styles.bold}>{receipt.buyer}</Text></Text>
           <Text style={styles.receiptRow}>Bank: {receipt.bank}</Text>
           <Text style={styles.receiptRow}>Ref: {receipt.ref}</Text>
           <Text style={styles.divider} />

@@ -10,7 +10,9 @@ function log(message) {
 }
 
 async function runTest() {
-  fs.writeFileSync(LOG_FILE, `# E2E Test Results - ${new Date().toLocaleString()}\n\n`);
+  const separator = '\n\n' + '='.repeat(40) + '\n';
+  const header = `${separator}# E2E Test Run - ${new Date().toLocaleString()}\n\n`;
+  fs.appendFileSync(LOG_FILE, header);
   try {
     log('--- Phase 1: Login ---');
     const loginRes = await axios.post(`${BASE_URL}/login`, { phoneNumber: '+2348000000000' });

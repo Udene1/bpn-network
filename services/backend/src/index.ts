@@ -177,7 +177,7 @@ fastify.post('/match-and-pay', { schema: paySchema }, async (request, reply) => 
   const fraudResult = await FraudService.performChecks(matchedUser.id, matchedUser.bvn, session.amount);
   if (!fraudResult.safe) {
     await prisma.auditLog.create({
-      data: { userId: matchedUser.id, action: 'FRAUD_BLOCK', details: fraudResult.reason }
+      data: { userId: matchedUser.id, action: 'FRAUD_BLOCK', details: fraudResult.reason || null }
     });
     return reply.status(403).send({ error: `Transaction Blocked: ${fraudResult.reason}` });
   }
@@ -219,12 +219,13 @@ fastify.post('/match-and-pay', { schema: paySchema }, async (request, reply) => 
     data: { userId: matchedUser.id, action: 'PAY', details: `₦${session.amount} to seller ${session.sellerId}. Ref: ${txn.bankReference}` },
   });
 
+  const maskedProfile = BiometricService.getMaskedBuyerProfile(matchedUser);
+
   return {
     status: txn.status,
     reference: txn.bankReference,
-    buyerName: matchedUser.fullName,
-    buyerBank: account.bankCode,
-    buyerAccount: account.accountNumber,
+    buyerName: maskedProfile.maskedName,
+    buyerBank: maskedProfile.bankName,
     amount: session.amount,
   };
 });
@@ -314,11 +315,16 @@ fastify.get('/merchant/stats', async (request, reply) => {
  */
 fastify.get('/merchant/transactions', async (request, reply) => {
   try {
-    return await prisma.transaction.findMany({
+    const transactions = await prisma.transaction.findMany({
       orderBy: { createdAt: 'desc' },
       take: 10,
-      include: { buyer: true }
+      include: { buyer: { include: { accounts: true } } }
     });
+
+    return transactions.map(tx => ({
+      ...tx,
+      buyer: BiometricService.getMaskedBuyerProfile(tx.buyer)
+    }));
   } catch (error) {
     request.log.error(error);
     return reply.status(500).send({ 
