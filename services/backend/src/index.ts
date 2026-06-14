@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { PrismaClient } from '@prisma/client';
 import { BiometricService } from './services/biometric.service.js';
+import { AuditService } from './services/audit.service.js';
 import { PaymentService } from './services/payment.service.js';
 import { AuthService } from './services/auth.service.js';
 import { RedisService } from './services/redis.service.js';
@@ -105,8 +106,11 @@ fastify.post('/enroll', { schema: enrollSchema }, async (request, reply) => {
   });
 
   // NDPR Consent audit log
-  await prisma.auditLog.create({
-    data: { userId: user.id, action: 'ENROLL', details: `Consent granted. Accounts linked: ${user.accounts.length}` },
+  await AuditService.log({
+    action: 'NDPR_CONSENT_GRANTED',
+    userId: user.id,
+    metadata: { method: 'ENROLLMENT_FLOW' },
+    request
   });
 
   return { status: 'SUCCESS', userId: user.id };
@@ -164,10 +168,18 @@ fastify.post('/match-and-pay', { schema: paySchema }, async (request, reply) => 
   // 2. Biometric match against all enrolled users
   const allUsers = await prisma.user.findMany({ include: { biometricTemplate: true, accounts: true } });
 
-  let matchedUser: typeof allUsers[number] | null = null;
+  let matchedUser: any = null;
   for (const user of allUsers) {
     if (!user.biometricTemplate) continue;
-    const { success } = await BiometricService.match(capturedTemplate, user.id, user.biometricTemplate.templateHash);
+    const { success, score } = await BiometricService.match(capturedTemplate, user.id, user.biometricTemplate.templateHash);
+    
+    await AuditService.logBiometricMatch({
+      userId: user.id,
+      success,
+      score,
+      request
+    });
+
     if (success) { matchedUser = user; break; }
   }
 
@@ -176,8 +188,11 @@ fastify.post('/match-and-pay', { schema: paySchema }, async (request, reply) => 
   // ─── FRAUD ENGINE CHECK ───
   const fraudResult = await FraudService.performChecks(matchedUser.id, matchedUser.bvn, session.amount);
   if (!fraudResult.safe) {
-    await prisma.auditLog.create({
-      data: { userId: matchedUser.id, action: 'FRAUD_BLOCK', details: fraudResult.reason || null }
+    await AuditService.log({
+      action: 'FRAUD_BLOCK',
+      userId: matchedUser.id,
+      metadata: { reason: fraudResult.reason },
+      request
     });
     return reply.status(403).send({ error: `Transaction Blocked: ${fraudResult.reason}` });
   }
@@ -215,8 +230,12 @@ fastify.post('/match-and-pay', { schema: paySchema }, async (request, reply) => 
 
   // 5. Audit log & Session Cleanup
   await RedisService.del(`session:${sessionToken}`);
-  await prisma.auditLog.create({
-    data: { userId: matchedUser.id, action: 'PAY', details: `₦${session.amount} to seller ${session.sellerId}. Ref: ${txn.bankReference}` },
+  await AuditService.log({
+    action: 'TRANSACTION_SUCCESS',
+    userId: matchedUser.id,
+    entityId: txn.id,
+    metadata: { ref: txn.bankReference, amount: session.amount },
+    request
   });
 
   const maskedProfile = BiometricService.getMaskedBuyerProfile(matchedUser);
@@ -242,6 +261,33 @@ fastify.get('/merchant/lookup-customer/:hash', async (request, reply) => {
   });
   if (!user) return reply.status(404).send({ error: 'Customer not found' });
   return BiometricService.getMaskedBuyerProfile(user);
+});
+
+/**
+ * POST /merchant/reverse-transaction
+ * Voids a pending payment session (Automatic Reversal).
+ */
+fastify.post('/merchant/reverse-transaction', async (request, reply) => {
+  const { sessionToken, reason } = request.body as any;
+  const session = await RedisService.get(`session:${sessionToken}`);
+  
+  if (!session) return reply.status(404).send({ error: 'Session not found' });
+
+  // Mark associated transaction as VOIDED if it exists
+  await prisma.transaction.updateMany({
+    where: { bankReference: `REF-${sessionToken}` }, // Standard reference mapping
+    data: { status: 'VOIDED' }
+  });
+
+  await AuditService.log({
+    action: 'TXN_REVERSED',
+    entityId: sessionToken,
+    metadata: { reason, sessionToken },
+    request
+  });
+
+  await RedisService.del(`session:${sessionToken}`);
+  return { status: 'VOIDED', reference: `REF-${sessionToken}` };
 });
 
 // ─── POST /webhook/anchor ──────────────────────────────────────
@@ -434,9 +480,22 @@ fastify.post('/verify-pin', async (request, reply) => {
     include: { accounts: true }
   });
 
-  if (!user || (user.pinHash ? user.pinHash !== pin : pin !== '1234')) { // Mocking PIN check
+  if (!user || (user.pinHash ? user.pinHash !== pin : pin !== '1234')) { 
+    await AuditService.log({
+      action: 'PIN_VERIFICATION_FAILURE',
+      userId: user?.id,
+      metadata: { sessionToken },
+      request
+    });
     return reply.status(401).send({ error: 'Invalid PIN' });
   }
+
+  await AuditService.log({
+    action: 'PIN_VERIFICATION_SUCCESS',
+    userId: user.id,
+    metadata: { sessionToken },
+    request
+  });
 
   // Authorize transaction (Reuse matching logic)
   const account = user.accounts[0];

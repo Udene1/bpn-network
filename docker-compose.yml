@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: bpn_db
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:alpine
+    restart: always
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: 
+      context: ./services/backend
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://user:password@postgres:5432/bpn_db?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: bpn-secret-2026
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+      - redis
+
+  merchant-dashboard:
+    build:
+      context: ./apps/merchant-dashboard
+    restart: always
+    environment:
+      NEXT_PUBLIC_BACKEND_URL: http://localhost:3000
+    ports:
+      - "3001:3001"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

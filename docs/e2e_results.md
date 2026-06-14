@@ -269,3 +269,79 @@ Lookup Success: {
 ✅ Customer lookup returns masked profile.
 
 ✅ **Merchant Dashboard Verification Completed Successfully**
+
+
+========================================
+# Compliance & Audit Verification - 14/6/2026, 12:22:03 am
+
+--- Phase 1: Verify Audit Logs ---
+Total Audit Records: 17
+✅ Audit logs are capturing events.
+
+--- Phase 2: Transaction Reversal (VOID Flow) ---
+Session Created: 4B3PX4
+
+❌ **Compliance Test Failed**: Session not found
+
+
+========================================
+# Compliance & Audit Verification - 14/6/2026, 12:22:27 am
+
+--- Phase 1: Verify Audit Logs ---
+Total Audit Records: 17
+✅ Audit logs are capturing events.
+
+--- Phase 2: Transaction Reversal (VOID Flow) ---
+Session Created: TK2A89
+
+❌ **Compliance Test Failed**: Internal Server Error
+
+
+========================================
+# Compliance & Audit Verification - 14/6/2026, 12:22:54 am
+
+
+
+========================================
+# Compliance & Audit Verification - 14/6/2026, 12:25:57 am
+
+--- Phase 1: Verify Audit Logs ---
+Total Audit Records: 18
+✅ Audit logs are capturing events.
+
+--- Phase 2: Transaction Reversal (VOID Flow) ---
+Session Created: 950E1F
+
+❌ **Compliance Test Failed**: Internal Server Error
+
+
+========================================
+# Compliance & Audit Verification - 14/6/2026, 12:30:29 am
+
+--- Phase 1: Verify Audit Logs ---
+Total Audit Records: 19
+✅ Audit logs are capturing events.
+
+--- Phase 2: Transaction Reversal (VOID Flow) ---
+Session Created: AHH2TO
+
+❌ **Compliance Test Failed**: Internal Server Error
+
+
+========================================
+# Compliance & Audit Verification - 14/6/2026, 12:30:56 am
+
+--- Phase 1: Verify Audit Logs ---
+Total Audit Records: 20
+✅ Audit logs are capturing events.
+
+--- Phase 2: Transaction Reversal (VOID Flow) ---
+Session Created: LWLXTT
+Reversal Result: {
+  "status": "VOIDED",
+  "reference": "REF-LWLXTT"
+}
+✅ Transaction reversal/voiding works.
+✅ Reversal event recorded in Audit Log.
+
+✅ **Compliance & Audit Verification Completed**
