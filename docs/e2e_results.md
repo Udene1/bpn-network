@@ -134,3 +134,30 @@ Merchant Stats: {"totalVolume":40000,"activeUsers":9,"successRate":"98.5%","last
 Merchant Transactions Count: 8
 
 ✅ **Full E2E Flow Completed Successfully**
+
+
+========================================
+# Recovery Flow Test - 13/6/2026, 11:45:14 pm
+
+--- Phase 0: Login ---
+
+--- Phase 1: Lookup Buyer (Manual Fallback) ---
+Lookup Success: {
+  "status": "SUCCESS",
+  "buyer": {
+    "maskedName": "John ••••",
+    "bankName": "Access Bank",
+    "status": "VERIFIED"
+  }
+}
+
+--- Phase 2: Create Session ---
+Invoice Token: PKOKRQ
+
+--- Phase 3: Verify PIN (Authorizing fallback txn) ---
+Payment Result: {
+  "status": "COMPLETED",
+  "reference": "REFP-TMLJ1"
+}
+
+✅ **Recovery Flow Test Completed Successfully**
