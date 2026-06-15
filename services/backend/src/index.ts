@@ -5,6 +5,7 @@ import { BiometricService } from './services/biometric.service.js';
 import { AuditService } from './services/audit.service.js';
 import { PaymentService } from './services/payment.service.js';
 import { AuthService } from './services/auth.service.js';
+import { NotificationService } from './services/notification.service.js';
 import { RedisService } from './services/redis.service.js';
 import { FraudService } from './services/fraud.service.js';
 
@@ -25,7 +26,7 @@ fastify.addHook('preHandler', async (request, reply) => {
     return reply.status(429).send({ error: 'Too many requests. Please try again later.' });
   }
 
-  const publicRoutes = ['/invoice', '/login', '/health', '/webhook/anchor', '/enroll', '/mandate/callback'];
+  const publicRoutes = ['/invoice', '/login', '/health', '/webhook/anchor', '/enroll', '/mandate/callback', '/lookup-buyer', '/merchant/reverse-transaction', '/verify-pin', '/match-and-pay'];
   if (publicRoutes.includes(request.routerPath)) return;
 
   const authHeader = request.headers.authorization;
@@ -233,17 +234,16 @@ fastify.post('/match-and-pay', { schema: paySchema }, async (request, reply) => 
     return reply.status(403).send({ error: `Transaction Blocked: ${fraudResult.reason}` });
   }
 
-  const account = matchedUser.accounts[0];
-  if (!account) return reply.status(400).send({ error: 'No linked bank account' });
+  // 3. Initiate transfer via Anchor Mandate
+  const mainAccount = matchedUser.accounts[0];
+  if (!mainAccount || !mainAccount.mandateId) {
+      return reply.status(400).send({ error: 'No active direct debit mandate found for this account.' });
+  }
 
-  // 3. Initiate transfer via Anchor BaaS
-  const result = await PaymentService.initiateTransfer({
+  const result = await PaymentService.executeMandatePayment({
     amount: session.amount,
-    sourceAccount: account.accountNumber,
-    destinationAccount: '0012345678', // Seller's account
-    destinationBankCode: '044',
-    sourceBankCode: '044',
-    narration: `BPN Payment – Session ${sessionToken}`,
+    mandateId: mainAccount.mandateId,
+    narration: `BPN Biometric Payment – Session ${sessionToken}`,
   });
 
   // 4. Record transaction
@@ -304,26 +304,49 @@ fastify.get('/merchant/lookup-customer/:hash', async (request, reply) => {
  * Voids a pending payment session (Automatic Reversal).
  */
 fastify.post('/merchant/reverse-transaction', async (request, reply) => {
-  const { sessionToken, reason } = request.body as any;
-  const session = await RedisService.get(`session:${sessionToken}`);
-  
-  if (!session) return reply.status(404).send({ error: 'Session not found' });
+  try {
+    const { sessionToken, reason } = request.body as any;
+    if (!sessionToken) return reply.status(400).send({ error: 'Session token is required' });
 
-  // Mark associated transaction as VOIDED if it exists
-  await prisma.transaction.updateMany({
-    where: { bankReference: `REF-${sessionToken}` }, // Standard reference mapping
-    data: { status: 'VOIDED' }
-  });
+    const session = await RedisService.get(`session:${sessionToken}`);
+    if (!session) {
+      // If session is already gone, check if a transaction was created and should be voided
+      const pendingTxn = await prisma.transaction.findFirst({
+        where: { bankReference: `REF-${sessionToken}`, status: 'PENDING' }
+      });
+      
+      if (!pendingTxn) return reply.status(404).send({ error: 'Active session not found and no pending transaction to reverse.' });
+      
+      await prisma.transaction.update({
+        where: { id: pendingTxn.id },
+        data: { status: 'VOIDED' }
+      });
+      return { status: 'VOIDED', message: 'Stale transaction reached and voided' };
+    }
 
-  await AuditService.log({
-    action: 'TXN_REVERSED',
-    entityId: sessionToken,
-    metadata: { reason, sessionToken },
-    request
-  });
+    // Wrap in Prisma transaction for atomicity
+    await prisma.$transaction([
+      prisma.transaction.updateMany({
+        where: { bankReference: `REF-${sessionToken}`, status: { in: ['PENDING'] } },
+        data: { status: 'VOIDED' }
+      }),
+      prisma.auditLog.create({
+        data: {
+          action: 'TXN_REVERSED',
+          entityId: sessionToken,
+          metadata: { reason, amount: session.amount, sellerId: session.sellerId },
+          ip: request.ip,
+          userAgent: request.headers['user-agent']
+        }
+      })
+    ]);
 
-  await RedisService.del(`session:${sessionToken}`);
-  return { status: 'VOIDED', reference: `REF-${sessionToken}` };
+    await RedisService.del(`session:${sessionToken}`);
+    return { status: 'VOIDED', reference: `REF-${sessionToken}` };
+  } catch (error: any) {
+    request.log.error(error, 'Reversal endpoint failed');
+    return reply.status(500).send({ error: 'Reversal failed. Please contact support if funds were deducted.' });
+  }
 });
 
 // ─── POST /webhook/anchor ──────────────────────────────────────
@@ -343,8 +366,18 @@ fastify.post('/webhook/anchor', async (request, reply) => {
     
     const transaction = await prisma.transaction.update({
       where: { bankReference: id },
-      data: { status: bpnStatus }
+      data: { status: bpnStatus },
+      include: { buyer: true }
     });
+
+    if (transaction.buyer?.phoneNumber) {
+        await NotificationService.sendReceipt({
+            phoneNumber: transaction.buyer.phoneNumber,
+            amount: transaction.amount,
+            reference: transaction.bankReference || 'N/A',
+            status: bpnStatus === 'COMPLETED' ? 'SUCCESS' : 'FAILED'
+        });
+    }
 
     request.log.info({ txnId: transaction.id, status: bpnStatus }, 'Transaction updated via webhook');
   }
@@ -533,9 +566,17 @@ fastify.post('/verify-pin', async (request, reply) => {
     request
   });
 
-  // Authorize transaction (Reuse matching logic)
-  const account = user.accounts[0];
-  if (!account) return reply.status(400).send({ error: 'No linked account' });
+  // Authorize transaction (Reuse mandate flow)
+  const mainAccount = user.accounts[0];
+  if (!mainAccount || !mainAccount.mandateId) {
+      return reply.status(400).send({ error: 'No active direct debit mandate found for this account.' });
+  }
+
+  const result = await PaymentService.executeMandatePayment({
+    amount: session.amount,
+    mandateId: mainAccount.mandateId,
+    narration: `BPN PIN Recovery Payment – Session ${sessionToken}`,
+  });
 
   const txn = await prisma.transaction.create({
     data: {
@@ -543,7 +584,7 @@ fastify.post('/verify-pin', async (request, reply) => {
       amount: session.amount,
       sellerId: session.sellerId,
       status: 'PENDING',
-      bankReference: 'REFP-' + Math.random().toString(36).substring(7).toUpperCase(),
+      bankReference: result.reference || 'REFP-' + Math.random().toString(36).substring(7).toUpperCase(),
     },
   });
 

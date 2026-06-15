@@ -5,6 +5,8 @@ export default function SettingsScreen() {
   const [autoPayEnabled, setAutoPayEnabled] = useState(false);
   const [dailyLimit, setDailyLimit] = useState('10000');
   const [pin, setPin] = useState('');
+  const [paymentMode, setPaymentMode] = useState<'STANDARD' | 'STRICT'>('STANDARD');
+  const [recoveryPhone, setRecoveryPhone] = useState('+2348000000001');
 
   const handleSave = () => {
     // Mock save operation
@@ -28,6 +30,17 @@ export default function SettingsScreen() {
         />
       </View>
 
+      <View style={styles.settingRow}>
+        <View>
+          <Text style={styles.settingLabel}>Strict Biometric Mode</Text>
+          <Text style={styles.settingDesc}>Require match for ALL transactions</Text>
+        </View>
+        <Switch
+          value={paymentMode === 'STRICT'}
+          onValueChange={(val) => setPaymentMode(val ? 'STRICT' : 'STANDARD')}
+        />
+      </View>
+
       <View style={styles.inputGroup}>
         <Text style={styles.settingLabel}>Daily Spending Limit (₦)</Text>
         <TextInput
@@ -40,15 +53,11 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.settingLabel}>Backup PIN Code (4 digits)</Text>
+        <Text style={styles.settingLabel}>Recovery Phone Number</Text>
         <TextInput
           style={styles.input}
-          keyboardType="numeric"
-          secureTextEntry
-          maxLength={4}
-          value={pin}
-          onChangeText={setPin}
-          placeholder="****"
+          value={recoveryPhone}
+          onChangeText={setRecoveryPhone}
         />
       </View>
 
@@ -57,10 +66,18 @@ export default function SettingsScreen() {
       <View style={styles.inputGroup}>
          <Button 
           title="Injury: Re-Enroll Fingerprint" 
-          onPress={() => Alert.alert("Injury Flow", "This will trigger an OTP to your recovery phone +234••••••78. Proceed?")} 
+          onPress={() => Alert.alert("Injury Flow", `This will trigger an OTP to ${recoveryPhone}. Proceed?`)} 
           color="#D32F2F" 
          />
          <Text style={styles.settingDesc}>Use this if you cannot use your registered finger.</Text>
+      </View>
+
+      <View style={styles.inputGroup}>
+         <Button 
+          title="View Transaction History" 
+          onPress={() => Alert.alert("History", "Opening secure history log...")} 
+          color="#666" 
+         />
       </View>
 
       <View style={{ marginTop: 20 }}>

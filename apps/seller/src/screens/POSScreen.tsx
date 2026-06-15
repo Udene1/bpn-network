@@ -67,6 +67,17 @@ export default function POSScreen() {
   const [mode, setMode] = useState<'BIOMETRIC' | 'LOOKUP' | 'PIN'>('BIOMETRIC');
   const [lookupValue, setLookupValue] = useState('');
   const [matchedBuyer, setMatchedBuyer] = useState<any>(null);
+  const [pin, setPin] = useState('');
+  const [scrambledNumbers, setScrambledNumbers] = useState<number[]>([]);
+
+  const scrambleKeypad = () => {
+    const nums = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    for (let i = nums.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [nums[i], nums[j]] = [nums[j], nums[i]];
+    }
+    setScrambledNumbers(nums);
+  };
 
   const triggerBiometric = async (token: string) => {
     try {
@@ -115,6 +126,7 @@ export default function POSScreen() {
     const data = await res.json();
     if (res.ok) {
       setMatchedBuyer(data.buyer);
+      scrambleKeypad();
       setMode('PIN');
       setStatus('');
     } else {
@@ -122,17 +134,28 @@ export default function POSScreen() {
     }
   };
 
-  const handlePinSubmit = async (pin: string) => {
+  const handlePinPress = (num: string) => {
+    if (pin.length < 4) {
+      const newPin = pin + num;
+      setPin(newPin);
+      if (newPin.length === 4) {
+        submitPin(newPin);
+      }
+    }
+  };
+
+  const submitPin = async (finalPin: string) => {
     setStatus('Verifying PIN...');
     const res = await fetch(`${BACKEND_URL}/verify-pin`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionToken: currentToken, pin, phoneNumber: lookupValue })
+      body: JSON.stringify({ sessionToken: currentToken, pin: finalPin, phoneNumber: lookupValue })
     });
     const data = await res.json();
     if (res.ok) {
       handleSuccess(data);
     } else {
+      setPin(''); // Reset PIN on failure
       Alert.alert('Payment Failed', data.error);
     }
   };
@@ -148,6 +171,7 @@ export default function POSScreen() {
     setIsWaiting(false);
     setTimer(0);
     setAttempts(0);
+    setPin('');
     setMode('BIOMETRIC');
     setStatus('');
   };
@@ -223,14 +247,22 @@ export default function POSScreen() {
             <View style={styles.pinBox}>
                <Text style={styles.pinTitle}>Authorize with PIN</Text>
                <Text style={styles.maskedBuyer}>Confirm Identity: {matchedBuyer?.maskedName} ({matchedBuyer?.bankName})</Text>
-               <Text style={styles.pinLabel}>Select your PIN on the scrambled keypad</Text>
+               <View style={styles.pinDisplay}>
+                  <Text style={styles.pinDot}>{pin.length >= 1 ? '●' : '○'}</Text>
+                  <Text style={styles.pinDot}>{pin.length >= 2 ? '●' : '○'}</Text>
+                  <Text style={styles.pinDot}>{pin.length >= 3 ? '●' : '○'}</Text>
+                  <Text style={styles.pinDot}>{pin.length >= 4 ? '●' : '○'}</Text>
+               </View>
                
                <View style={styles.pinGrid}>
-                  {[7, 2, 9, 4, 0, 1, 8, 3, 5, 6].map(num => (
-                    <TouchableOpacity key={num} style={styles.pinBtn} onPress={() => handlePinSubmit(num.toString())}>
+                  {scrambledNumbers.map(num => (
+                    <TouchableOpacity key={num} style={styles.pinBtn} onPress={() => handlePinPress(num.toString())}>
                        <Text style={styles.pinBtnText}>{num}</Text>
                     </TouchableOpacity>
                   ))}
+                  <TouchableOpacity style={styles.pinBtn} onPress={() => setPin('')}>
+                       <Text style={[styles.pinBtnText, {color: 'red', fontSize: 14}]}>Clear</Text>
+                  </TouchableOpacity>
                </View>
                <Text style={styles.pinHint}>Keypad order changes for your security</Text>
             </View>
@@ -296,6 +328,8 @@ const styles = StyleSheet.create({
   pinBtn: { width: 80, height: 60, backgroundColor: '#fff', margin: 5, borderRadius: 8, justifyContent: 'center', alignItems: 'center', elevation: 2 },
   pinBtnText: { fontSize: 20, fontWeight: 'bold', color: '#1A237E' },
   pinHint: { fontSize: 11, color: '#999', marginTop: 15 },
+  pinDisplay: { flexDirection: 'row', marginBottom: 20 },
+  pinDot: { fontSize: 30, marginHorizontal: 10, color: '#1A237E' },
   qrContainer: { marginTop: 40, alignItems: 'center', borderTopWidth: 1, borderColor: '#eee', paddingTop: 30 },
   qrText: { fontSize: 14, fontWeight: 'bold', color: '#666', marginBottom: 15 },
   qrPlaceholder: { width: 140, height: 140, backgroundColor: '#eee', justifyContent: 'center', alignItems: 'center', borderRadius: 10, marginBottom: 10 }

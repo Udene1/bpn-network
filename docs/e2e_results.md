@@ -381,3 +381,35 @@ Callback Response: {
 ✅ Mandate callback endpoint is active.
 
 ✅ **Mandate Flow Verification Completed Successfully**
+
+
+##################################################
+# FINAL HARDENING & PAYMENT AUDIT - 15/6/2026, 7:52:49 pm
+
+--- Test 1: PII Masking Audit ---
+
+❌ **Audit Failed**: Missing Authorization Header
+
+
+##################################################
+# FINAL HARDENING & PAYMENT AUDIT - 15/6/2026, 7:53:05 pm
+
+--- Test 1: PII Masking Audit ---
+
+❌ **Audit Failed**: Buyer not found
+
+
+##################################################
+# FINAL HARDENING & PAYMENT AUDIT - 15/6/2026, 7:53:31 pm
+
+--- Phase 0: Setup (Public Enrollment) ---
+--- Test 1: PII Masking Audit ---
+✅ PII Masking: Verified. Only maskedName and bankName returned.
+
+--- Test 2: Stable Reversal Logic ---
+Reversal 1: VOIDED
+Reversal 2 (Duplicate): Correctly rejected with 404/Error: Active session not found and no pending transaction to reverse.
+
+--- Test 3: Mandate Payment Strategy Pulse ---
+
+❌ **Audit Failed**: Session expired or not found
