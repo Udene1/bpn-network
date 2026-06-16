@@ -6,7 +6,7 @@ export default function TransactionsPage() {
   const [status, setStatus] = useState('');
 
   useEffect(() => {
-    fetch(`http://localhost:3000/merchant/transactions?status=${status}`)
+    fetch(`https://api.verimut.icu/merchant/transactions?status=${status}`)
       .then(res => res.json())
       .then(data => setTxns(data));
   }, [status]);

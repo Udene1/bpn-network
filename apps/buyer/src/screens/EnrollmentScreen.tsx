@@ -58,7 +58,7 @@ export default function EnrollmentScreen() {
         bankAccounts: [{ bankCode, accountNumber, accountName: fullName || 'New User' }]
       };
 
-      const res = await fetch('http://localhost:3000/enroll', {
+      const res = await fetch('https://api.verimut.icu/enroll', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

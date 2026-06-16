@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
 import { BiometricSensor } from '../biometric/sensor';
+import Constants from '../config';
 
 /**
  * POSScreen handles the seller's checkout process.
@@ -14,8 +15,6 @@ export default function POSScreen() {
   const [receipt, setReceipt] = useState<any>(null);
   const [timer, setTimer] = useState<number>(0);
   const [currentToken, setCurrentToken] = useState<string>('');
-
-  const BACKEND_URL = 'http://localhost:3000'; 
 
   // Session Timer Effect
   useEffect(() => {
@@ -39,7 +38,7 @@ export default function POSScreen() {
       setStatus('Initializing Secure Session...');
       setTimer(120); // Start 120s countdown
 
-      const invoiceRes = await fetch(`${BACKEND_URL}/invoice`, {
+      const invoiceRes = await fetch(`${Constants.API_URL}/invoice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sellerId: 'S-777', amount: parseFloat(amount) })

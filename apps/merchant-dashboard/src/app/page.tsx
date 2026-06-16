@@ -6,17 +6,17 @@ export default function Dashboard() {
   const [txns, setTxns] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch('http://localhost:3000/merchant/stats')
+    fetch('https://api.verimut.icu/merchant/stats')
       .then(res => res.json())
       .then(data => setStats(data));
 
-    fetch('http://localhost:3000/merchant/transactions')
+    fetch('https://api.verimut.icu/merchant/transactions')
       .then(res => res.json())
       .then(data => setTxns(data));
   }, []);
 
   const handleExport = () => {
-    window.open('http://localhost:3000/merchant/ndpr-export');
+    window.open('https://api.verimut.icu/merchant/ndpr-export');
   };
 
   return (

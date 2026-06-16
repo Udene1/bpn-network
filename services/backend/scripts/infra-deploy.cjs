@@ -5,8 +5,8 @@ const { ACMClient, RequestCertificateCommand } = require("@aws-sdk/client-acm");
 const dotenv = require('dotenv');
 const path = require('path');
 
-// Load credentials from docs/.env
-dotenv.config({ path: path.join(__dirname, '../../docs/.env') });
+// Load credentials from root docs/.env
+dotenv.config({ path: path.join(__dirname, '../../../docs/.env') });
 
 const config = {
   region: process.env.AWS_REGION || "eu-west-1",
