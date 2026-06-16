@@ -26,7 +26,7 @@ export class PaymentService {
     console.log(`Executing mandate payment of ₦${params.amount} for mandate ${params.mandateId}`);
     
     const apiKey = process.env.ANCHOR_API_KEY || 'sk_test_placeholder';
-    const baseUrl = process.env.ANCHOR_ENVIRONMENT === 'production' ? 'https://api.getanchor.co/v1' : 'https://sandbox.getanchor.co/v1';
+    const baseUrl = process.env.ANCHOR_ENVIRONMENT === 'production' ? 'https://api.getanchor.co/api/v1' : 'https://api.sandbox.getanchor.co/api/v1';
 
     try {
       const response = await axios.post(`${baseUrl}/mandates/${params.mandateId}/debits`, {
@@ -61,7 +61,7 @@ export class PaymentService {
     // Change ANCHOR_ENVIRONMENT to 'production' for real transfers.
     // Replace ANCHOR_API_KEY with your live secret key in the .env file.
     const isSandbox = process.env.ANCHOR_ENVIRONMENT !== 'production';
-    const baseUrl = isSandbox ? 'https://sandbox.getanchor.co/v1' : 'https://api.getanchor.co/v1';
+    const baseUrl = isSandbox ? 'https://api.sandbox.getanchor.co/api/v1' : 'https://api.getanchor.co/api/v1';
     const apiKey = process.env.ANCHOR_API_KEY || 'sk_test_placeholder_key_here';
 
     try {
@@ -105,7 +105,7 @@ export class PaymentService {
 
     try {
       const apiKey = process.env.ANCHOR_API_KEY || 'sk_test_placeholder';
-      const baseUrl = process.env.ANCHOR_ENVIRONMENT === 'production' ? 'https://api.getanchor.co/v1' : 'https://sandbox.getanchor.co/v1';
+      const baseUrl = process.env.ANCHOR_ENVIRONMENT === 'production' ? 'https://api.getanchor.co/api/v1' : 'https://api.sandbox.getanchor.co/api/v1';
 
       // Example Anchor request for mandate setup
       // In production, this returns a URL to the bank's authorization portal.

@@ -87,47 +87,52 @@ fastify.post('/enroll', { schema: enrollSchema }, async (request, reply) => {
 
   if (!bvn || bvn.length !== 11) return reply.status(400).send({ error: 'Invalid BVN (must be 11 digits)' });
 
-  const encryptedTemplate = BiometricService.encryptTemplate(template);
+  try {
+    const encryptedTemplate = BiometricService.encryptTemplate(template);
 
-  const user = await prisma.user.create({
-    data: {
-      bvn,
-      fullName,
-      phoneNumber,
-      biometricTemplate: { create: { templateHash: encryptedTemplate } },
-      accounts: {
-        create: (bankAccounts || []).map((acc: any) => ({
-          bankCode: acc.bankCode,
-          accountNumber: acc.accountNumber,
-          accountName: acc.accountName || fullName,
-        })),
+    const user = await prisma.user.create({
+      data: {
+        bvn,
+        fullName,
+        phoneNumber,
+        biometricTemplate: { create: { templateHash: encryptedTemplate } },
+        accounts: {
+          create: (bankAccounts || []).map((acc: any) => ({
+            bankCode: acc.bankCode,
+            accountNumber: acc.accountNumber,
+            accountName: acc.accountName || fullName,
+          })),
+        },
       },
-    },
-    include: { accounts: true },
-  });
-
-  // NDPR Consent audit log
-  await AuditService.log({
-    action: 'NDPR_CONSENT_GRANTED',
-    userId: user.id,
-    metadata: { method: 'ENROLLMENT_FLOW' },
-    request
-  });
-
-  // ─── Direct Debit Mandate Setup ───
-  let redirectUrl: string | undefined;
-  if (user.accounts.length > 0) {
-    const mainAccount = user.accounts[0];
-    const mandate = await PaymentService.setupMandate(mainAccount.accountNumber, mainAccount.bankCode);
-    
-    await prisma.bankAccount.update({
-      where: { id: mainAccount.id },
-      data: { mandateId: mandate.mandateId }
+      include: { accounts: true },
     });
-    redirectUrl = mandate.redirectUrl;
-  }
 
-  return { status: 'SUCCESS', userId: user.id, redirectUrl };
+    // NDPR Consent audit log
+    await AuditService.log({
+      action: 'NDPR_CONSENT_GRANTED',
+      userId: user.id,
+      metadata: { method: 'ENROLLMENT_FLOW' },
+      request
+    });
+
+    // ─── Direct Debit Mandate Setup ───
+    let redirectUrl: string | undefined;
+    if (user.accounts.length > 0) {
+      const mainAccount = user.accounts[0];
+      const mandate = await PaymentService.setupMandate(mainAccount.accountNumber, mainAccount.bankCode);
+      
+      await prisma.bankAccount.update({
+        where: { id: mainAccount.id },
+        data: { mandateId: mandate.mandateId }
+      });
+      redirectUrl = mandate.redirectUrl;
+    }
+
+    return { status: 'SUCCESS', userId: user.id, redirectUrl };
+  } catch (err: any) {
+    request.log.error(err, 'Enrollment failed');
+    return reply.status(500).send({ error: 'Enrollment failed. Please try again later.' });
+  }
 });
 
 /**
@@ -364,22 +369,27 @@ fastify.post('/webhook/anchor', async (request, reply) => {
     // Map Anchor statuses to BPN statuses
     const bpnStatus = status === 'successful' ? 'COMPLETED' : 'FAILED';
     
-    const transaction = await prisma.transaction.update({
-      where: { bankReference: id },
-      data: { status: bpnStatus },
-      include: { buyer: true }
-    });
+    try {
+      const transaction = await prisma.transaction.update({
+        where: { bankReference: id },
+        data: { status: bpnStatus },
+        include: { buyer: true }
+      });
 
-    if (transaction.buyer?.phoneNumber) {
-        await NotificationService.sendReceipt({
-            phoneNumber: transaction.buyer.phoneNumber,
-            amount: transaction.amount,
-            reference: transaction.bankReference || 'N/A',
-            status: bpnStatus === 'COMPLETED' ? 'SUCCESS' : 'FAILED'
-        });
+      if (transaction.buyer?.phoneNumber) {
+          await NotificationService.sendReceipt({
+              phoneNumber: transaction.buyer.phoneNumber,
+              amount: transaction.amount,
+              reference: transaction.bankReference || 'N/A',
+              status: bpnStatus === 'COMPLETED' ? 'SUCCESS' : 'FAILED'
+          });
+      }
+
+      request.log.info({ txnId: transaction.id, status: bpnStatus }, 'Transaction updated via webhook');
+    } catch (err: any) {
+      // Gracefully handle unknown/spoofed references — do NOT crash
+      request.log.warn({ ref: id, error: err.message }, 'Webhook reference not found — possible spoofing attempt');
     }
-
-    request.log.info({ txnId: transaction.id, status: bpnStatus }, 'Transaction updated via webhook');
   }
 
   return { received: true };
