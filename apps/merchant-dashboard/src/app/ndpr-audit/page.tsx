@@ -2,7 +2,8 @@
 
 export default function NDPRAuditPage() {
   const handleExport = () => {
-    window.open('http://localhost:3000/merchant/ndpr-export');
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    window.open(`${apiUrl}/merchant/ndpr-export`);
   };
 
   return (

@@ -117,8 +117,8 @@ fastify.post('/enroll', { schema: enrollSchema }, async (request, reply) => {
 
     // ─── Direct Debit Mandate Setup ───
     let redirectUrl: string | undefined;
-    if (user.accounts.length > 0) {
-      const mainAccount = user.accounts[0];
+    const mainAccount = user.accounts[0];
+    if (mainAccount) {
       const mandate = await PaymentService.setupMandate(mainAccount.accountNumber, mainAccount.bankCode);
       
       await prisma.bankAccount.update({
@@ -499,7 +499,7 @@ fastify.get('/merchant/ndpr-export', async (request, reply) => {
     });
 
     const csvHeaders = 'ID,User,Action,Details,Date\n';
-    const csvRows = logs.map(l => `${l.id},${l.userId},${l.action},${l.details},${l.createdAt}`).join('\n');
+    const csvRows = logs.map(l => `${l.id},${l.userId},${l.action},${JSON.stringify(l.metadata)},${l.createdAt}`).join('\n');
     
     reply.header('Content-Type', 'text/csv');
     reply.header('Content-Disposition', 'attachment; filename=ndpr_audit_export.csv');

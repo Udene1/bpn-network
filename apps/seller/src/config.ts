@@ -1,5 +1,5 @@
 const Constants = {
-  API_URL: 'https://api.verimut.icu',
+  API_URL: process.env.EXPO_PUBLIC_API_URL || 'https://api.verimut.icu',
   APP_NAME: 'BPN Seller POS',
   SESSION_TIMEOUT_SEC: 120,
 };

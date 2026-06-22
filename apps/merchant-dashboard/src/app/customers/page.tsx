@@ -9,7 +9,8 @@ export default function CustomersPage() {
   const handleLookup = () => {
     setCustomer(null);
     setError('');
-    fetch(`http://localhost:3000/merchant/lookup-customer/${hash}`)
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    fetch(`${apiUrl}/merchant/lookup-customer/${hash}`)
       .then(res => {
         if (!res.ok) throw new Error('Customer not found');
         return res.json();

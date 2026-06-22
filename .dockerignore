@@ -1,0 +1,12 @@
+node_modules
+apps/buyer/node_modules
+apps/seller/node_modules
+apps/merchant-dashboard/node_modules
+apps/buyer/android
+apps/buyer/ios
+apps/seller/android
+apps/seller/ios
+.git
+dist
+build
+.next
