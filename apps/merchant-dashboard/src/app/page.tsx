@@ -9,14 +9,27 @@ export default function Dashboard() {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.verimut.icu';
     
     fetch(`${apiUrl}/merchant/stats`)
-      .then(res => res.json())
-      .then(data => setStats(data))
+      .then(res => res.ok ? res.json() : Promise.reject('Failed to load stats'))
+      .then(data => {
+        if (data && typeof data === 'object' && !data.error) {
+          setStats(data);
+        }
+      })
       .catch(err => console.error('Stats fetch failed:', err));
 
     fetch(`${apiUrl}/merchant/transactions`)
-      .then(res => res.json())
-      .then(data => setTxns(data))
-      .catch(err => console.error('Transactions fetch failed:', err));
+      .then(res => res.ok ? res.json() : Promise.reject('Failed to load transactions'))
+      .then(data => {
+        if (Array.isArray(data)) {
+          setTxns(data);
+        } else {
+          setTxns([]);
+        }
+      })
+      .catch(err => {
+        console.error('Transactions fetch failed:', err);
+        setTxns([]);
+      });
   }, []);
 
   const handleExport = () => {
@@ -44,17 +57,17 @@ export default function Dashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '3rem' }}>
         <div className="glass stat-card">
           <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '1rem' }}>Total Sales (Today)</p>
-          <h2 style={{ fontSize: '2.5rem', fontWeight: 700 }}>₦{stats.totalVolume?.toLocaleString() || '0'}</h2>
+          <h2 style={{ fontSize: '2.5rem', fontWeight: 700 }}>₦{Number(stats.totalVolume || 0).toLocaleString()}</h2>
           <p style={{ color: '#10b981', fontSize: '0.8rem', marginTop: '0.5rem' }}>+12% from yesterday</p>
         </div>
         <div className="glass stat-card">
           <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '1rem' }}>Enrolled Buyers</p>
-          <h2 style={{ fontSize: '2.5rem', fontWeight: 700 }}>{stats.activeUsers}</h2>
+          <h2 style={{ fontSize: '2.5rem', fontWeight: 700 }}>{stats.activeUsers || 0}</h2>
           <p style={{ color: '#94a3b8', fontSize: '0.8rem', marginTop: '0.5rem' }}>NDPR Consents Logged</p>
         </div>
         <div className="glass stat-card">
           <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '1rem' }}>Biometric Success</p>
-          <h2 style={{ fontSize: '2.5rem', fontWeight: 700 }}>{stats.successRate}</h2>
+          <h2 style={{ fontSize: '2.5rem', fontWeight: 700 }}>{stats.successRate || '0%'}</h2>
           <p style={{ color: '#10b981', fontSize: '0.8rem', marginTop: '0.5rem' }}>Optimized capture mode</p>
         </div>
       </div>
@@ -62,7 +75,7 @@ export default function Dashboard() {
       <section className="glass" style={{ padding: '2rem', marginBottom: '3rem' }}>
         <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '2rem' }}>7-Day Revenue Trend</h3>
         <div style={{ height: 200, display: 'flex', alignItems: 'flex-end', gap: '5%', padding: '0 1rem' }}>
-          {(stats.chartData || []).map((day: any, i: number) => {
+          {Array.isArray(stats.chartData) && stats.chartData.map((day: any, i: number) => {
             const volume = Number(day?.volume) || 0;
             const total = Number(stats?.totalVolume) || 10000;
             const height = (volume / total) * 100 + 10;
@@ -99,16 +112,16 @@ export default function Dashboard() {
             </tr>
           </thead>
           <tbody>
-            {txns?.map(tx => (
+            {Array.isArray(txns) && txns.map(tx => (
               <tr key={tx.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 <td style={{ padding: '1.25rem 0' }}>{tx.buyer?.fullName || 'Guest'}</td>
                 <td style={{ color: '#94a3b8' }}>{tx.bankReference}</td>
-                <td style={{ fontWeight: 600 }}>₦{tx.amount?.toLocaleString() || '0'}</td>
+                <td style={{ fontWeight: 600 }}>₦{Number(tx.amount || 0).toLocaleString()}</td>
                 <td><span className={`pill pill-${tx.status?.toLowerCase() == 'completed' ? 'success' : 'pending'}`}>{tx.status}</span></td>
                 <td style={{ color: '#64748b' }}>{tx.createdAt ? new Date(tx.createdAt).toLocaleTimeString() : 'N/A'}</td>
               </tr>
             ))}
-            {txns.length === 0 && (
+            {(!txns || txns.length === 0) && (
               <tr>
                 <td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>No recent transactions found.</td>
               </tr>
