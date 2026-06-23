@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert, Switch, ActivityIndicator } from 'react-native';
 import { BiometricSensor } from '../api/biometric.sensor';
+import Constants from '../config';
+import { TouchableOpacity } from 'react-native';
 
 /**
  * EnrollmentScreen handles the buyer's one-time enrollment process.
@@ -58,7 +60,7 @@ export default function EnrollmentScreen() {
         bankAccounts: [{ bankCode, accountNumber, accountName: fullName || 'New User' }]
       };
 
-      const res = await fetch('https://api.verimut.icu/enroll', {
+      const res = await fetch(`${Constants.API_URL}/enroll`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -76,11 +78,11 @@ export default function EnrollmentScreen() {
           ]);
         }
       } else {
-        throw new Error(data.error || "Enrollment failed");
+        throw new Error(data.error || data.message || "Enrollment failed");
       }
     } catch (e: any) {
       setIsEnrolling(false);
-      Alert.alert("Technical Error", e.message);
+      Alert.alert("Technical Error", e.message || "Connection failed");
     }
   };
 

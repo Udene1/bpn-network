@@ -90,7 +90,7 @@ export default function POSScreen() {
       if (signature) {
         setStatus('Verifying Identity...');
         
-        const payRes = await fetch(`${BACKEND_URL}/match-and-pay`, {
+        const payRes = await fetch(`${Constants.API_URL}/match-and-pay`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sessionToken: token, capturedTemplate: signature })
@@ -106,7 +106,7 @@ export default function POSScreen() {
              setMode('LOOKUP');
              setStatus('3 Failures. Switching to Manual Lookup.');
           } else {
-             throw new Error(payData.error || 'Match failed. Try again.');
+             throw new Error(payData.error || payData.message || 'Match failed. Try again.');
           }
         }
       }
@@ -116,20 +116,25 @@ export default function POSScreen() {
   };
 
   const handleLookup = async () => {
-    setStatus('Looking up buyer...');
-    const res = await fetch(`${BACKEND_URL}/lookup-buyer`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phoneNumber: lookupValue })
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setMatchedBuyer(data.buyer);
-      scrambleKeypad();
-      setMode('PIN');
-      setStatus('');
-    } else {
-      Alert.alert('Lookup Failed', data.error);
+    try {
+      setStatus('Looking up buyer...');
+      const res = await fetch(`${Constants.API_URL}/lookup-buyer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber: lookupValue })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMatchedBuyer(data.buyer);
+        scrambleKeypad();
+        setMode('PIN');
+        setStatus('');
+      } else {
+        Alert.alert('Lookup Failed', data.error || 'User not found');
+      }
+    } catch (e: any) {
+      setStatus('Lookup Failed');
+      Alert.alert('Network Error', 'Could not connect to the BPN network.');
     }
   };
 
@@ -144,18 +149,22 @@ export default function POSScreen() {
   };
 
   const submitPin = async (finalPin: string) => {
-    setStatus('Verifying PIN...');
-    const res = await fetch(`${BACKEND_URL}/verify-pin`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionToken: currentToken, pin: finalPin, phoneNumber: lookupValue })
-    });
-    const data = await res.json();
-    if (res.ok) {
-      handleSuccess(data);
-    } else {
-      setPin(''); // Reset PIN on failure
-      Alert.alert('Payment Failed', data.error);
+    try {
+      setStatus('Verifying PIN...');
+      const res = await fetch(`${Constants.API_URL}/verify-pin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionToken: currentToken, pin: finalPin, phoneNumber: lookupValue })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        handleSuccess(data);
+      } else {
+        setPin(''); // Reset PIN on failure
+        Alert.alert('Payment Failed', data.error || 'Incorrect PIN');
+      }
+    } catch (e: any) {
+      setStatus('Verification Failed');
     }
   };
 
