@@ -1,6 +1,7 @@
 const { AmplifyClient, CreateAppCommand, CreateBranchCommand, CreateDeploymentCommand, StartDeploymentCommand } = require("@aws-sdk/client-amplify");
-const { Route53Client, ListHostedZonesByNameCommand, ChangeResourceRecordSetsCommand } = require("@aws-sdk/client-route-53");
-require('dotenv').config();
+const { Route53Client, ListHostedZonesByNameCommand } = require("@aws-sdk/client-route-53");
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../../../docs/.env') });
 
 const REGION = "us-east-1";
 const APP_NAME = "bpn-merchant-dashboard";

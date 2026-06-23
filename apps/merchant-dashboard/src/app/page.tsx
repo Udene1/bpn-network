@@ -6,17 +6,22 @@ export default function Dashboard() {
   const [txns, setTxns] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch('https://api.verimut.icu/merchant/stats')
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.verimut.icu';
+    
+    fetch(`${apiUrl}/merchant/stats`)
       .then(res => res.json())
-      .then(data => setStats(data));
+      .then(data => setStats(data))
+      .catch(err => console.error('Stats fetch failed:', err));
 
-    fetch('https://api.verimut.icu/merchant/transactions')
+    fetch(`${apiUrl}/merchant/transactions`)
       .then(res => res.json())
-      .then(data => setTxns(data));
+      .then(data => setTxns(data))
+      .catch(err => console.error('Transactions fetch failed:', err));
   }, []);
 
   const handleExport = () => {
-    window.open('https://api.verimut.icu/merchant/ndpr-export');
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.verimut.icu';
+    window.open(`${apiUrl}/merchant/ndpr-export`);
   };
 
   return (
@@ -39,7 +44,7 @@ export default function Dashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '3rem' }}>
         <div className="glass stat-card">
           <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '1rem' }}>Total Sales (Today)</p>
-          <h2 style={{ fontSize: '2.5rem', fontWeight: 700 }}>₦{stats.totalVolume.toLocaleString()}</h2>
+          <h2 style={{ fontSize: '2.5rem', fontWeight: 700 }}>₦{stats.totalVolume?.toLocaleString() || '0'}</h2>
           <p style={{ color: '#10b981', fontSize: '0.8rem', marginTop: '0.5rem' }}>+12% from yesterday</p>
         </div>
         <div className="glass stat-card">
@@ -62,13 +67,13 @@ export default function Dashboard() {
             return (
               <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                 <div style={{ 
-                  width: '100%', 
-                  height: `${Math.min(height, 100)}%`, 
-                  background: 'linear-gradient(to top, var(--accent-primary), var(--accent-secondary))',
-                  borderRadius: '6px 6px 0 0',
-                  opacity: 0.8
+                   width: '100%', 
+                   height: `${Math.min(height, 100)}%`, 
+                   background: 'linear-gradient(to top, var(--accent-primary), var(--accent-secondary))',
+                   borderRadius: '6px 6px 0 0',
+                   opacity: 0.8
                 }} />
-                <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{day.date.split('-')[2]}/{day.date.split('-')[1]}</span>
+                <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{day.date?.split('-')[2] || '?'}/{day.date?.split('-')[1] || '?'}</span>
               </div>
             );
           })}
@@ -92,13 +97,13 @@ export default function Dashboard() {
             </tr>
           </thead>
           <tbody>
-            {txns.map(tx => (
+            {txns?.map(tx => (
               <tr key={tx.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 <td style={{ padding: '1.25rem 0' }}>{tx.buyer?.fullName || 'Guest'}</td>
                 <td style={{ color: '#94a3b8' }}>{tx.bankReference}</td>
-                <td style={{ fontWeight: 600 }}>₦{tx.amount.toLocaleString()}</td>
-                <td><span className={`pill pill-${tx.status.toLowerCase() == 'completed' ? 'success' : 'pending'}`}>{tx.status}</span></td>
-                <td style={{ color: '#64748b' }}>{new Date(tx.createdAt).toLocaleTimeString()}</td>
+                <td style={{ fontWeight: 600 }}>₦{tx.amount?.toLocaleString() || '0'}</td>
+                <td><span className={`pill pill-${tx.status?.toLowerCase() == 'completed' ? 'success' : 'pending'}`}>{tx.status}</span></td>
+                <td style={{ color: '#64748b' }}>{tx.createdAt ? new Date(tx.createdAt).toLocaleTimeString() : 'N/A'}</td>
               </tr>
             ))}
             {txns.length === 0 && (
