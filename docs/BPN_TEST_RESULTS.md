@@ -79,3 +79,13 @@ Expected behavior: Missing biometric provider configuration must disable biometr
 Observed behavior: Factory now requires BPN_BIOMETRIC_PROVIDER and rejects uninstalled providers.
 Result: PASS (source inspection only)
 Remaining risk: No real SDK adapter is installed yet; biometric checkout remains intentionally unavailable until a real provider is integrated and tested on physical devices.
+
+
+## 2026-10-04 — Biometric SDK candidate evidence review
+Environment: Official vendor documentation review; no SDK credentials or binary installed.
+Scope: Validate whether a real provider can satisfy BPN's ordinary-smartphone, fingerprint, liveness and 1:N requirements before writing vendor-specific code.
+Expected behavior: Candidate must have documented capabilities matching the BPN checkout requirement.
+Observed behavior: IDEMIA officially documents smartphone-camera fingerprint capture, liveness, biometric extraction and 1:1/1:N comparison on Android/iOS; SDK distribution/licensing is controlled.
+Result: PASS (documentation capability gate only)
+Decision: IDEMIA becomes the leading technical candidate but is NOT selected until SDK access and a real-device POC are completed.
+Remaining risk: No real SDK binary, credentials, merchant-device capture, cross-device gallery test, or financial checkout test has been performed.
