@@ -657,9 +657,9 @@ fastify.post('/webhook/anchor', async (request, reply) => {
     data: { status: bpnStatus },
   });
 
-  if (updated.buyer?.phoneNumber) {
+  if (transaction.buyer?.phoneNumber) {
     await NotificationService.sendReceipt({
-      phoneNumber: updated.buyer.phoneNumber,
+      phoneNumber: transaction.buyer.phoneNumber,
       amount: updated.amount,
       reference: updated.bankReference || 'N/A',
       status: bpnStatus === 'COMPLETED' ? 'SUCCESS' : 'FAILED',
