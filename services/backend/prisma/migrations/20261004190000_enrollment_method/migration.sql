@@ -1,0 +1,1 @@
+-- BPN: record whether a buyer enrolled on their own phone or through a merchant-assisted flow.\nALTER TABLE "User" ADD COLUMN "enrollmentMethod" TEXT NOT NULL DEFAULT 'PHONE';\nALTER TABLE "User" ALTER COLUMN "phoneNumber" DROP NOT NULL;\n
