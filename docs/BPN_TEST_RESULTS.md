@@ -164,3 +164,26 @@ Expected: Use the phone camera, not Android BiometricPrompt or a mock signature;
 Observed: Seller app now has a dedicated Biometric Capture route using expo-camera. Engine URL is configurable with EXPO_PUBLIC_BPN_BIOMETRIC_ENGINE_URL. Capture returns base64 JPEG data and calls /v1/enroll or /v1/identify.
 Result: PASS (source/configuration implementation only)
 Remaining risk: Not yet executed on the two Infinix Android phones. Fingerprint image usability, focus, lighting, extraction, cross-device identification and latency remain unverified. iOS capture is implemented through Expo camera but unverified on the two iPhones. Liveness/PAD remains UNIMPLEMENTED.
+
+## 2026-10-04 — Enrollment-mode separation and merchant-assisted enrollment implementation
+
+**Environment:** source implementation only; physical biometric execution not performed.
+
+**Scope:** Distinguish normal buyer self-enrollment from the exceptional merchant-assisted enrollment path.
+
+**Implementation:**
+- User.enrollmentMethod added with PHONE default.
+- User.phoneNumber is nullable so a buyer without a phone can exist in the assisted path.
+- Added /merchant-assisted-enroll.
+- Assisted route requires explicit consent, BVN, name, bank account and a real fingerprint image capture.
+- The configured real biometric provider is called before the BPN user record is created, using a generated user ID.
+- Assisted enrollment records MERCHANT_ASSISTED and provider reference; raw capture is not persisted by BPN.
+- Seller biometric capture UI now exposes an explicit Assisted mode.
+
+**Expected:** self-enrollment remains the default; assisted enrollment is available only when needed; no mock biometric result is introduced.
+
+**Observed:** source changes committed successfully. No runtime or physical-device verification has yet been performed.
+
+**Result:** IMPLEMENTED / UNVERIFIED.
+
+**Remaining risk:** the current AFIS engine is experimental and in-memory; smartphone camera fingerprint quality, cross-device matching, liveness/PAD, persistent protected gallery, merchant authentication, mandate completion and end-to-end payment remain unverified.
