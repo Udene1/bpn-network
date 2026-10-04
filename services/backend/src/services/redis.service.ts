@@ -44,6 +44,12 @@ export class RedisService {
     return count;
   }
 
+  static async setIfAbsent(key: string, value: any, ttlSeconds: number = 86400): Promise<boolean> {
+    if (!this.connected) throw new Error('Redis is not connected');
+    const result = await this.client.set(key, JSON.stringify(value), { EX: ttlSeconds, NX: true });
+    return result === 'OK';
+  }
+
   static async del(key: string) {
     if (!this.connected) return;
     await this.client.del(key);
