@@ -164,3 +164,15 @@ Assisted path:
 Reason: This preserves the original BPN inclusion goal without turning merchant enrollment into the normal path. A buyer with a phone should retain control of their biometric enrollment, while people without phones must still be able to participate.
 
 Constraint: The current merchant-assisted route is experimental until real-device fingerprint quality, provider extraction, gallery persistence/security, liveness/PAD, authorization binding and banking-rail tests pass.
+
+
+## Decision 015 — AWS Seller runtime is a temporary external blocker, not a reason to fake biometric evidence
+
+Date: 2026-10-04
+
+Decision: The current physical biometric test is blocked because the Seller application is hosted through AWS App Builder and that runtime is currently unavailable. BPN development continues on independent backend, biometric-engine, payment, security and documentation work. The physical-device biometric test remains a required gate and is not marked passed by simulation.
+
+Reason: The BPN biometric thesis requires real camera capture from an ordinary merchant smartphone. A mock, synthetic score, Android BiometricPrompt substitution, or simulated payment would produce misleading evidence.
+
+Constraint: Record the blocker and its cause in BPN_TEST_RESULTS.md. When a usable Seller runtime or a replacement deployment is available, resume the exact physical-device test matrix rather than changing the acceptance criteria.
+
