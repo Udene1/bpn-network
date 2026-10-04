@@ -105,3 +105,17 @@ Before selecting a production SDK, compare candidates against:
 **Important qualification:** This is a technical-candidate decision, not a vendor selection. The SDK requires controlled distribution/licensing and native integration. We will not add vendor code, credentials, or invented APIs until legitimate SDK access is obtained.
 
 **Selection gate:** same-person cross-device identification, liveness/PAD evidence, assertion/integrity model, gallery architecture, template protection, latency, device compatibility, licensing and privacy/security review must all pass before the provider is marked selected.
+
+
+## Decision 010 — Build BPN's own biometric engine
+
+**Date:** 2026-10-04  
+**Decision:** BPN will build and own its biometric stack rather than making a commercial biometric vendor a prerequisite for the first real POC.
+
+**Implementation:** The first recognition core is an open-source AFIS/SourceAFIS-compatible implementation behind a BPN-owned engine. This is not a mock. The engine processes real fingerprint images and performs real 1:1/1:N matching.
+
+**Reason:** BPN currently has no budget for commercial biometric licensing or business-registration prerequisites, while the biometric requirement is the central technical risk that must be tested. Using an existing open recognition core lets BPN spend engineering time on the actual product problem: smartphone capture, enrollment, gallery, identity mapping, challenge-bound assertions, device integration, security controls and evidence.
+
+**Constraint:** The engine is experimental. It must not be presented as production financial biometric authentication until capture quality, liveness/PAD, threshold calibration, template protection, gallery security, device security, privacy/legal review and real-device accuracy testing pass.
+
+**Follow-up:** Build Android capture first; then validate Android-to-Android cross-device identification before integrating the result into payment.
