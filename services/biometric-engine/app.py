@@ -7,15 +7,15 @@ from pathlib import Path
 from threading import RLock
 from typing import Optional
 
-from afis import MindtctExtractor
+from afis import SafisExtractor
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-app = FastAPI(title="BPN Biometric Engine", version="0.1.1-experimental")
+app = FastAPI(title="BPN Biometric Engine", version="0.1.2-experimental")
 
 _gallery_lock = RLock()
 _gallery: dict[str, "GalleryEntry"] = {}
-_extractor = MindtctExtractor()
+_extractor = SafisExtractor()
 
 
 @dataclass
@@ -104,7 +104,7 @@ def root():
     return {
         "ok": True,
         "service": "bpn-biometric-engine",
-        "version": "0.1.1-experimental",
+        "version": "0.1.2-experimental",
         "status": "experimental",
         "health": "/health",
         "enroll": "/v1/enroll",
@@ -121,7 +121,7 @@ def health():
         "service": "bpn-biometric-engine",
         "version": "0.1.1-experimental",
         "provider": "bpn-afis",
-        "extractor": "mindtct",
+        "extractor": "safis",
         "gallerySize": len(_gallery),
         "liveness": "UNIMPLEMENTED",
     }
@@ -130,12 +130,13 @@ def health():
 @app.post("/v1/enroll")
 def enroll(request: EnrollRequest):
     processed = _process(request)
+    width, height = _template_dimensions(processed)
     entry = GalleryEntry(
         request.user_id,
         processed,
         _quality(processed),
-        _template_height(processed),
-        0,
+        height,
+        width,
     )
     with _gallery_lock:
         _gallery[request.user_id] = entry
