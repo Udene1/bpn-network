@@ -6,7 +6,7 @@ import Constants from '../config';
 /**
  * POSScreen handles the seller's checkout process.
  */
-export default function POSScreen() {
+export default function POSScreen({ navigation }: any) {
   const [amount, setAmount] = useState('');
   const [isWaiting, setIsWaiting] = useState(false);
   const [status, setStatus] = useState('');
@@ -207,6 +207,9 @@ export default function POSScreen() {
           />
           <Button title="Collect Biometric Payment" onPress={handlePayment} color="#1A237E" />
           {status !== '' && <Text style={styles.errorText}>{status}</Text>}
+          <TouchableOpacity onPress={() => navigation.navigate('BiometricCapture')} style={{marginTop: 18, alignItems: 'center'}}>
+            <Text style={{color: '#1A237E', textDecorationLine: 'underline'}}>Open real fingerprint camera test</Text>
+          </TouchableOpacity>
         </View>
       )}
 
