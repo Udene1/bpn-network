@@ -210,7 +210,7 @@ fastify.post('/payment/authorize', async (request, reply) => {
     return reply.status(400).send({ error: 'Incomplete BPN authorization proof' });
   }
 
-  const challenge = await BpnAuthorizationService.consumeChallenge(proof);
+  const challenge = await BpnAuthorizationService.getChallenge(proof.sessionToken, proof.credentialId);
   if (!challenge) return reply.status(401).send({ error: 'Invalid, expired, or already-used authorization challenge' });
   if (challenge.sellerId !== proof.sellerId || challenge.amount !== proof.amount) {
     return reply.status(401).send({ error: 'Authorization proof does not match payment challenge' });
@@ -221,6 +221,7 @@ fastify.post('/payment/authorize', async (request, reply) => {
   if (!BpnCredentialService.verifyAuthorizationProof(credential.publicKey, proof)) {
     return reply.status(401).send({ error: 'BPN authorization proof verification failed' });
   }
+  await BpnAuthorizationService.consumeChallenge(proof.sessionToken, proof.credentialId);
 
   const user = credential.user;
   const fraudResult = await FraudService.performChecks(user.id, user.bvn, challenge.amount);
