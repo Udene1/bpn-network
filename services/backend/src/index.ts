@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import crypto from 'crypto';
 import cors from '@fastify/cors';
 import { PrismaClient } from '@prisma/client';
 import { BiometricService } from './services/biometric.service.js';
@@ -176,7 +177,7 @@ const invoiceSchema = {
 };
 fastify.post('/invoice', { schema: invoiceSchema }, async (request) => {
   const { sellerId, amount } = request.body as any;
-  const sessionToken = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const sessionToken = crypto.randomBytes(6).toString('base64url').toUpperCase();
 
   // Store transient session in Redis (120s expiry)
   await RedisService.set(`session:${sessionToken}`, { sellerId, amount }, 120);
@@ -505,13 +506,15 @@ fastify.get('/merchant/stats', async (request, reply) => {
       const dayVolume = transactions
         .filter(tx => tx.createdAt.toISOString().split('T')[0] === date)
         .reduce((sum, tx) => sum + tx.amount, 0);
-      return { date, volume: dayVolume || Math.floor(Math.random() * 5000) }; // Mock data for empty days
+      return { date, volume: dayVolume };
     });
 
     return {
       totalVolume,
       activeUsers,
-      successRate: '98.5%',
+      successRate: transactions.length > 0
+        ? `${((transactions.filter(tx => tx.status === 'COMPLETED').length / transactions.length) * 100).toFixed(1)}%`
+        : '0%',
       chartData,
       lastUpdate: new Date().toISOString()
     };
