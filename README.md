@@ -1,7 +1,7 @@
 # Biometric Payment Network (BPN)
 
 BPN is a secure, NDPR-compliant, non-custodial biometric payment micro-network for Nigeria's informal economy. 
-It enables buyers to confirm transactions securely using fingerprint verification at merchant POS terminals without requiring cards, internet-connected smartphones, or NFC devices.
+It is designed to let buyers authorize transactions with fingerprint verification on an ordinary merchant smartphone, without requiring the buyer to present a card or use their phone at checkout.
 
 ## System Architecture & Flow
 
@@ -20,14 +20,14 @@ graph TD
 ## Architecture
 
 1. **Buyer App (React Native)**
-   - Used for one-time enrollment: Captures BVN, biometric template (encrypted locally and stored on the backend), and links a primary funding bank account.
+   - Used for enrollment: verifies identity, creates the BPN authorization credential, and links one or more funding bank accounts. Cross-device fingerprint enrollment/identification is delegated to the selected production biometric provider; raw fingerprint data is not a BPN payment credential.
 2. **Seller App (React Native)**
-   - Acts as the POS terminal. The merchant generates an invoice (`/invoice`), and the user places their finger on the merchant's device sensor to authorize the payment via (`/match-and-pay`).
+   - Acts as the POS terminal. The merchant generates an invoice (`/invoice`), the selected biometric provider captures/identifies the customer's fingerprint on the merchant smartphone, and BPN then requires transaction-bound authorization before payment.
 3. **Backend Service (Node.js/Fastify)**
    - Fast, scalable API interface.
    - **Prisma/PostgreSQL**: Manages core relationships (Users, Accounts, AuditLogs for NDPR).
    - **Redis**: Caches POS sessions with short TTLs and provides strict IP-based rate limiting.
-   - **Anchor BaaS**: Executes NIBSS Instant Payments (NIP) programmatically in the background after biometric validation.
+   - **Anchor BaaS**: Current development/integration payment rail. Production NIBSS integration remains an explicit future rail boundary.
 
 ## Setup & Running
 
@@ -66,7 +66,7 @@ node tests/full-flow.js
 - [Anchor Setup Guide](docs/ANCHOR_SETUP.md): Configuring the BaaS Sandbox.
 - [API Collection](docs/bpn_api_collection.json): Postman JSON for manual requests.
 
-### Mobile Biometric Troubleshooting (Android)
-- Ensure the device has at least one fingerprint enrolled in System Settings.
-- If using an emulator, use the extended controls -> Fingerprint to simulate a scan.
-- BPN requires `android.permission.USE_BIOMETRIC`. (Declared in `app.json`).
+### Mobile Biometric Integration Status
+- The legacy device-local biometric helper is not the cross-device BPN recognition mechanism.
+- A production biometric SDK must be installed and licensed before merchant fingerprint checkout is enabled.
+- No simulated biometric provider is used as production evidence.
