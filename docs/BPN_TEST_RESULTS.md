@@ -279,3 +279,18 @@ Observed: source changes implement the controls. No deployed backend runtime or 
 Result: IMPLEMENTED / RUNTIME UNVERIFIED.
 
 Remaining risk: merchant API key lifecycle/rotation, full merchant identity/role model, backend deployment, live Anchor sandbox webhook delivery, reconciliation against Anchor's verify-transfer API, and end-to-end payment remain outstanding.
+
+
+## 2026-10-04 — Vercel backend deployment path prepared
+
+Commit: ef2cc4ed0ac158aae1db789887f51b844144634e
+
+Environment: Vercel; project `bpn-backend`, linked to `Udene1/bpn-network`, root `services/backend`.
+
+Observed: Vercel project and production-branch deployment were created successfully. Deployment is currently QUEUED. Node 24 was explicitly configured because Vercel is deprecating Node 20 for new deployments.
+
+Result: DEPLOYMENT PREPARED / RUNTIME UNVERIFIED.
+
+Blocker: The new Vercel project does not yet have the required production secrets/infrastructure values (DATABASE_URL, REDIS_URL, JWT_SECRET, BPN_MERCHANT_API_KEY, Anchor credentials/webhook secret, and any biometric-engine configuration) configured. No secret values were invented or copied into source.
+
+Next step: provision legitimate environment values, then execute deployed health, auth-negative, payment-state and Anchor webhook verification tests.
