@@ -6,14 +6,15 @@ export type PaymentAuthorizationChallenge = {
   credentialId: string;
   sellerId: string;
   amount: number;
+  accountId?: string;
   payload: string;
   expiresAt: string;
 };
 
 export class BpnAuthorizationService {
-  static async createChallenge(sessionToken: string, credentialId: string, sellerId: string, amount: number) {
-    const payload = BpnCredentialService.buildAuthorizationPayload({ sessionToken, credentialId, sellerId, amount });
-    const challenge: PaymentAuthorizationChallenge = { sessionToken, credentialId, sellerId, amount, payload, expiresAt: new Date(Date.now() + 120000).toISOString() };
+  static async createChallenge(sessionToken: string, credentialId: string, sellerId: string, amount: number, accountId?: string) {
+    const payload = BpnCredentialService.buildAuthorizationPayload({ sessionToken, credentialId, sellerId, amount, accountId });
+    const challenge: PaymentAuthorizationChallenge = { sessionToken, credentialId, sellerId, amount, ...(accountId ? { accountId } : {}), payload, expiresAt: new Date(Date.now() + 120000).toISOString() };
     await RedisService.set('bpn-auth:' + sessionToken + ':' + credentialId, challenge, 120);
     return challenge;
   }
