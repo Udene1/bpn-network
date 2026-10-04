@@ -99,6 +99,21 @@ def _score(probe: object, candidate: object) -> float:
         raise HTTPException(status_code=422, detail=f"Fingerprint matching failed: {exc}") from exc
 
 
+@app.get("/")
+def root():
+    return {
+        "ok": True,
+        "service": "bpn-biometric-engine",
+        "version": "0.1.1-experimental",
+        "status": "experimental",
+        "health": "/health",
+        "enroll": "/v1/enroll",
+        "identify": "/v1/identify",
+        "verify": "/v1/verify",
+        "liveness": "UNIMPLEMENTED",
+    }
+
+
 @app.get("/health")
 def health():
     return {
