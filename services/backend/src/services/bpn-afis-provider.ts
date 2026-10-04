@@ -6,7 +6,7 @@ import {
   BpnBiometricIdentification,
   BpnBiometricModality,
   BpnBiometricProvider,
-} from './bpn-biometric-provider';
+} from './bpn-biometric-provider.js';
 
 const ENGINE_URL = process.env.BPN_BIOMETRIC_ENGINE_URL?.replace(/\/$/, '');
 const SECRET = process.env.BPN_BIOMETRIC_ASSERTION_SECRET;
