@@ -119,3 +119,22 @@ Remaining risk:
 - No cross-device identification has been performed.
 - No liveness/PAD exists.
 - No production biometric security claim is permitted.
+
+## 2026-10-04 — Biometric engine CI execution attempt
+Commit: 0e8d9bad8011da13586e1e71c16e8e0093fdd496
+Environment: GitHub Actions configuration added for services/biometric-engine.
+Scope: Install the real AFIS dependency and execute pytest against the biometric engine contract.
+Expected behavior: Dependencies install successfully and health/invalid-image contract tests execute.
+Observed behavior: Workflow configuration was committed, but GitHub exposed zero workflow runs for the commit.
+Result: BLOCKED
+Root cause: No workflow execution was exposed after the workflow commit; dependency installation and runtime tests therefore remain unverified.
+Remaining risk: The AFIS dependency/API compatibility, FastAPI runtime and matching implementation have not yet been executed in CI.
+
+## 2026-10-04 — Removal of synthetic application data
+Commit: 0c5dbdac0d4edd553e21b38251b54e005d637d41
+Environment: GitHub repository; source-level verification.
+Scope: Remove random dashboard transaction-volume fallback and random invoice session token generation.
+Expected behavior: Product metrics must reflect stored transactions; session tokens must use a cryptographically secure generator.
+Observed behavior: Dashboard empty days now report zero volume; success rate is calculated from persisted COMPLETED transactions; invoice tokens use crypto.randomBytes.
+Result: PASS (source inspection only)
+Remaining risk: Backend compilation/runtime still requires CI execution.
