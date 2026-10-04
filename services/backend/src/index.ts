@@ -17,6 +17,35 @@ const fastify = Fastify({ logger: true });
 await fastify.register(cors, { origin: true });
 const prisma = new PrismaClient();
 
+const MERCHANT_PROTECTED_ROUTES = new Set([
+  '/invoice',
+  '/payment/challenge',
+  '/payment/authorize',
+  '/lookup-buyer',
+  '/merchant-assisted-enroll',
+  '/merchant/reverse-transaction',
+  '/verify-pin',
+  '/match-and-pay',
+]);
+
+function verifyMerchantKey(request: any): boolean {
+  const configured = process.env.BPN_MERCHANT_API_KEY;
+  const supplied = request.headers['x-bpn-merchant-key'];
+  if (!configured || typeof supplied !== 'string') return false;
+  const expected = Buffer.from(configured, 'utf8');
+  const actual = Buffer.from(supplied, 'utf8');
+  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+}
+
+fastify.addContentTypeParser('application/json', { parseAs: 'string' }, function (request, body, done) {
+  (request as any).rawBody = body;
+  try {
+    done(null, JSON.parse(body as string));
+  } catch (error) {
+    done(error as Error, undefined);
+  }
+});
+
 // ─── Rate Limiting & Auth Middleware ──────────────────────────
 fastify.addHook('preHandler', async (request, reply) => {
   // Granular Rate Limiting (20 requests/minute per IP)
@@ -30,7 +59,14 @@ fastify.addHook('preHandler', async (request, reply) => {
     return reply.status(429).send({ error: 'Too many requests. Please try again later.' });
   }
 
-  const publicRoutes = ['/invoice', '/login', '/health', '/webhook/anchor', '/enroll', '/mandate/callback', '/lookup-buyer', '/merchant-assisted-enroll', '/merchant/reverse-transaction', '/verify-pin', '/match-and-pay'];
+  if (MERCHANT_PROTECTED_ROUTES.has(request.routerPath)) {
+    if (!verifyMerchantKey(request)) {
+      return reply.status(401).send({ error: 'Merchant authentication required' });
+    }
+    return;
+  }
+
+  const publicRoutes = ['/login', '/health', '/webhook/anchor', '/enroll', '/mandate/callback'];
   if (publicRoutes.includes(request.routerPath)) return;
 
   const authHeader = request.headers.authorization;
@@ -68,6 +104,7 @@ fastify.setErrorHandler((error, request, reply) => {
 // ─── POST /login ──────────────────────────────────────────────
 fastify.post('/login', async (request) => {
   const { phoneNumber } = request.body as any;
+  if (!phoneNumber) return { error: 'phoneNumber is required' };
   const token = AuthService.generateToken({ phoneNumber });
   return { token };
 });
@@ -750,7 +787,7 @@ fastify.post('/verify-pin', async (request, reply) => {
     include: { accounts: true }
   });
 
-  if (!user || (user.pinHash ? user.pinHash !== pin : pin !== '1234')) { 
+  if (!user || !user.pinHash || user.pinHash !== pin) { 
     await AuditService.log({
       action: 'PIN_VERIFICATION_FAILURE',
       userId: user?.id,
@@ -784,13 +821,13 @@ fastify.post('/verify-pin', async (request, reply) => {
       buyerId: user.id,
       amount: session.amount,
       sellerId: session.sellerId,
-      status: 'PENDING',
-      bankReference: result.reference || 'REFP-' + Math.random().toString(36).substring(7).toUpperCase(),
+      status: result.status === 'COMPLETED' || result.status === 'successful' ? 'COMPLETED' : result.status === 'FAILED' || result.status === 'failed' ? 'FAILED' : 'PENDING',
+      bankReference: result.reference,
     },
   });
 
   await RedisService.del(`session:${sessionToken}`);
-  return { status: 'COMPLETED', reference: txn.bankReference };
+  return { status: txn.status, reference: txn.bankReference };
 });
 
 // ─── Server Start ─────────────────────────────────────────────
