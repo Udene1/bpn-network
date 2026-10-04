@@ -2,14 +2,16 @@ import ReactNativeBiometrics from 'react-native-biometrics';
 import { Alert } from 'react-native';
 
 /**
- * BiometricSensor provides a wrapper for device-level fingerpint/face ID.
+ * Legacy device-local biometric helper.
+ *
+ * This authenticates biometrics enrolled on the merchant device and can
+ * protect a cryptographic key. It does NOT identify a customer's fingerprint
+ * across devices and must not be used as BPN's cross-device biometric
+ * provider.
  */
 export class BiometricSensor {
   private static rnBiometrics = new ReactNativeBiometrics();
 
-  /**
-   * Checks if biometrics are available on the device.
-   */
   static async checkAvailability(): Promise<boolean> {
     const { available, error } = await this.rnBiometrics.isSensorAvailable();
     if (error) {
@@ -20,11 +22,15 @@ export class BiometricSensor {
   }
 
   /**
-   * Captures a biometric signature/prompt.
-   * In a real Android implementation, we might use this to sign a challenge 
-   * string that the backend can verify.
+   * Legacy compatibility method.
+   *
+   * The returned value is a device-level cryptographic signature, not a
+   * fingerprint template. New checkout code must use BpnMerchantBiometricProvider.
    */
-  static async captureFingerprint(promptMessage: string = 'Scan your fingerprint to pay', sessionToken: string = 'bpn-session-auth'): Promise<string | null> {
+  static async captureFingerprint(
+    promptMessage: string = 'Scan your fingerprint to pay',
+    sessionToken: string = 'bpn-session-auth'
+  ): Promise<string | null> {
     try {
       const isAvailable = await this.checkAvailability();
       if (!isAvailable) {
@@ -37,13 +43,9 @@ export class BiometricSensor {
         payload: sessionToken
       });
 
-      if (success && signature) {
-        return signature; // This serves as our "captured template" for the match
-      }
+      if (success && signature) return signature;
 
-      if (error) {
-        console.error('Signature error:', error);
-      }
+      if (error) console.error('Signature error:', error);
       return null;
     } catch (e) {
       console.error('Biometric exception:', e);
