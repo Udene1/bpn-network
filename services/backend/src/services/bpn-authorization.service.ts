@@ -18,14 +18,13 @@ export class BpnAuthorizationService {
     return challenge;
   }
 
-  static async consumeChallenge(proof: BpnAuthorizationProof) {
-    const key = 'bpn-auth:' + proof.sessionToken + ':' + proof.credentialId;
-    const challenge = await RedisService.get(key) as PaymentAuthorizationChallenge | null;
-    if (!challenge) return null;
-    const expected = BpnCredentialService.buildAuthorizationPayload({ sessionToken: challenge.sessionToken, credentialId: challenge.credentialId, sellerId: challenge.sellerId, amount: challenge.amount });
-    const supplied = BpnCredentialService.buildAuthorizationPayload({ sessionToken: proof.sessionToken, credentialId: proof.credentialId, sellerId: proof.sellerId, amount: proof.amount });
-    if (expected !== supplied) return null;
-    await RedisService.del(key);
+  static async getChallenge(sessionToken: string, credentialId: string) {
+    return await RedisService.get('bpn-auth:' + sessionToken + ':' + credentialId) as PaymentAuthorizationChallenge | null;
+  }
+
+  static async consumeChallenge(sessionToken: string, credentialId: string) {
+    const challenge = await this.getChallenge(sessionToken, credentialId);
+    if (challenge) await RedisService.del('bpn-auth:' + sessionToken + ':' + credentialId);
     return challenge;
   }
 }
