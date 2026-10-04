@@ -119,3 +119,15 @@ Before selecting a production SDK, compare candidates against:
 **Constraint:** The engine is experimental. It must not be presented as production financial biometric authentication until capture quality, liveness/PAD, threshold calibration, template protection, gallery security, device security, privacy/legal review and real-device accuracy testing pass.
 
 **Follow-up:** Build Android capture first; then validate Android-to-Android cross-device identification before integrating the result into payment.
+
+## Decision 011 — Biometric engine is real recognition, not a mock
+Date: 2026-10-04
+Decision: The BPN-owned biometric engine may use an existing open recognition core initially, but every match used as evidence must come from actual fingerprint image processing and matching.
+Constraint: No hard-coded users, synthetic scores, fake success responses, or Android BiometricPrompt substitution.
+Reason: We need a zero/near-zero-cost path to validate the central BPN cross-device biometric thesis without paying for a commercial vendor. BPN's own surrounding SDK/protocol remains the strategic layer.
+Follow-up: Validate real Android camera capture and cross-device 1:N matching before connecting biometric identification to payment execution.
+
+## Decision 012 — No synthetic product data
+Date: 2026-10-04
+Decision: Remove random fallback values from production-facing BPN metrics and use cryptographically secure randomness for transaction/session identifiers.
+Reason: The project is being built as a real product and test evidence must correspond to actual state.
