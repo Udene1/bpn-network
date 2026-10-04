@@ -238,3 +238,20 @@ Root cause: The current Seller runtime depends on AWS App Builder, which is unav
 Decision: Do not substitute a mock fingerprint, synthetic match, Android BiometricPrompt signature, or simulated payment success merely to keep the test green. Continue building and validating independent BPN components while preserving the physical-device test as pending.
 
 Next validation required when a usable Seller runtime is available: Infinix Android A enroll -> Vercel AFIS engine -> Infinix Android B identify, with capture quality, extraction, score, threshold, latency and failure behavior recorded.
+
+
+## 2026-10-04 — Legacy payment path stopped generating synthetic bank references
+
+Commit: 1d73dde2134fc603100d6b2b907d6e714a6e46ac
+
+Environment: GitHub repository; source-level inspection.
+
+Scope: Correct the legacy `/match-and-pay` payment-recording path so it uses the payment rail's returned reference and actual rail status instead of generating a random local reference and always recording PENDING.
+
+Expected: Every persisted transaction should retain the authoritative payment-rail reference and accurately map COMPLETED, FAILED or PENDING state.
+
+Observed: The path now persists `result.reference`, maps the returned rail status to BPN transaction state, and records a state-appropriate audit action. No payment rail was executed during this change.
+
+Result: PASS (source inspection only).
+
+Remaining risk: Runtime/payment-rail integration, webhook reconciliation, idempotency and the legacy route's overall security remain unverified. This does not make `/match-and-pay` the preferred biometric path; the BPN credential/provider flow remains the intended architecture.
