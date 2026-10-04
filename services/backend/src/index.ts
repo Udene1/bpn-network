@@ -176,23 +176,32 @@ const enrollSchema = {
       phoneNumber: { type: 'string' },
       template: { type: 'string' },
       publicKey: { type: 'string', minLength: 100 },
-      bankAccounts: { type: 'array' }
+      bankAccounts: { type: 'array' },
+      biometricCapture: { type: 'object', properties: { imageBase64: { type: 'string', minLength: 100 }, imageMime: { type: 'string' } } }
     }
   }
 };
 fastify.post('/enroll', { schema: enrollSchema }, async (request, reply) => {
-  const { bvn, fullName, phoneNumber, template, publicKey, bankAccounts } = request.body as any;
+  const { bvn, fullName, phoneNumber, template, publicKey, bankAccounts, biometricCapture } = request.body as any;
 
   if (!bvn || bvn.length !== 11) return reply.status(400).send({ error: 'Invalid BVN (must be 11 digits)' });
 
   try {
     const encryptedTemplate = template ? BiometricService.encryptTemplate(template) : null;
+    const userId = crypto.randomUUID();
+    let providerBiometric: any = null;
+    if (biometricCapture?.imageBase64) {
+      const provider = getBpnBiometricProvider();
+      providerBiometric = await provider.enroll({ userId, modality: 'FINGERPRINT', capture: { imageBase64: biometricCapture.imageBase64, imageMime: biometricCapture.imageMime ?? 'image/jpeg' } });
+    }
 
     const user = await prisma.user.create({
       data: {
+        id: userId,
         bvn,
         fullName,
         phoneNumber,
+        enrollmentMethod: 'PHONE',
         ...(encryptedTemplate ? { biometricTemplate: { create: { templateHash: encryptedTemplate } } } : {}),
         ...(publicKey ? { credentials: { create: { id: BpnCredentialService.generateCredentialId(), publicKey } } } : {}),
         accounts: {
@@ -202,6 +211,7 @@ fastify.post('/enroll', { schema: enrollSchema }, async (request, reply) => {
             accountName: acc.accountName || fullName,
           })),
         },
+        ...(providerBiometric ? { biometricIdentities: { create: { provider: providerBiometric.provider, providerReference: providerBiometric.providerReference, modality: providerBiometric.modality } } } : {}),
       },
       include: { accounts: true },
     });
