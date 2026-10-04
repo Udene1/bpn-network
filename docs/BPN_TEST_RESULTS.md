@@ -187,3 +187,19 @@ Remaining risk: Not yet executed on the two Infinix Android phones. Fingerprint 
 **Result:** IMPLEMENTED / UNVERIFIED.
 
 **Remaining risk:** the current AFIS engine is experimental and in-memory; smartphone camera fingerprint quality, cross-device matching, liveness/PAD, persistent protected gallery, merchant authentication, mandate completion and end-to-end payment remain unverified.
+
+## 2026-10-04 — Provider biometric identity persistence
+
+**Environment:** source implementation only.
+
+**Scope:** Connect real biometric enrollment to BPN's user record without storing raw fingerprint images in the BPN database.
+
+**Implemented:** Added BpnBiometricIdentity with provider, providerReference, modality and lifecycle status. Normal phone enrollment can submit a real biometric capture to the configured provider and persists only the returned provider reference. Merchant-assisted enrollment now persists the same provider identity reference.
+
+**Expected:** BPN owns the identity-to-provider binding while the provider/engine owns the biometric representation. Raw camera images are not persisted in PostgreSQL.
+
+**Observed:** schema, migration and backend changes committed successfully. Runtime/provider execution remains unverified because the experimental AFIS engine has not yet completed a real physical-device test.
+
+**Result:** IMPLEMENTED / UNVERIFIED.
+
+**Remaining risk:** provider references currently point to an in-memory experimental gallery; deletion/revocation, encrypted persistent gallery, gallery synchronization, liveness/PAD and cross-device matching remain outstanding.
