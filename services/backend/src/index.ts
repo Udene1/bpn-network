@@ -230,8 +230,9 @@ fastify.post('/payment/authorize', async (request, reply) => {
   const mainAccount = user.accounts.find((account: any) => account.isDefault) || user.accounts[0];
   if (!mainAccount || !mainAccount.mandateId) return reply.status(400).send({ error: 'No active direct debit mandate found for this account.' });
 
-  const result = await PaymentService.executeMandatePayment({ amount: challenge.amount, mandateId: mainAccount.mandateId, narration: 'BPN Payment – ' + challenge.sessionToken });
-  const txn = await prisma.transaction.create({ data: { buyerId: user.id, amount: challenge.amount, sellerId: challenge.sellerId, status: 'PENDING', bankReference: result.reference } });
+  const result = await PaymentService.executeMandatePayment({ amount: challenge.amount, mandateId: mainAccount.mandateId, narration: 'BPN Payment – ' + challenge.sessionToken, idempotencyKey: `bpn-session-${challenge.sessionToken}` });
+  const txnStatus = result.status === 'COMPLETED' || result.status === 'successful' ? 'COMPLETED' : result.status === 'FAILED' || result.status === 'failed' ? 'FAILED' : 'PENDING';
+  const txn = await prisma.transaction.create({ data: { buyerId: user.id, amount: challenge.amount, sellerId: challenge.sellerId, status: txnStatus, bankReference: result.reference } });
   await AuditService.log({ action: 'BPN_PAYMENT_AUTHORIZED', userId: user.id, entityId: txn.id, metadata: { credentialId: credential.id, amount: challenge.amount, reference: result.reference }, request });
   await RedisService.del('session:' + challenge.sessionToken);
 
