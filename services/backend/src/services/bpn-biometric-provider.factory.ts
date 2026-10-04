@@ -1,5 +1,5 @@
-import { BpnBiometricProvider } from './bpn-biometric-provider';
-import { BpnAfisProvider } from './bpn-afis-provider';
+import { BpnBiometricProvider } from './bpn-biometric-provider.js';
+import { BpnAfisProvider } from './bpn-afis-provider.js';
 
 /**
  * Production biometric provider selection.
