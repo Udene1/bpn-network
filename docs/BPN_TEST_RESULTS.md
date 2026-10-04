@@ -70,3 +70,12 @@ Observed behavior:
 Result: BLOCKED
 Reason: No production biometric SDK has been integrated and no real-device test has been executed.
 Remaining risk: Checkout still uses the legacy biometric path until the selected provider adapter is implemented and verified.
+
+## 2026-10-04 — Removed mock biometric provider path
+Commit: pending
+Environment: GitHub repository; source-level verification only.
+Scope: Remove the default/mock biometric provider configuration path so an unconfigured deployment fails closed.
+Expected behavior: Missing biometric provider configuration must disable biometric payments rather than select a simulated provider.
+Observed behavior: Factory now requires BPN_BIOMETRIC_PROVIDER and rejects uninstalled providers.
+Result: PASS (source inspection only)
+Remaining risk: No real SDK adapter is installed yet; biometric checkout remains intentionally unavailable until a real provider is integrated and tested on physical devices.
