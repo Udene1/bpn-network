@@ -1,14 +1,17 @@
+import { AnchorPaymentRail } from './anchor-payment-rail.js';
+
 /**
- * AnchorService handles communication with Anchor BaaS APIs.
- * Documentation: https://docs.getanchor.co/
+ * Backwards-compatible Anchor facade.
+ *
+ * New payment flows should use PaymentService so the banking rail remains
+ * replaceable. This facade exists for older callers that still reference
+ * AnchorService directly.
  */
 export class AnchorService {
-  private static API_KEY = process.env.ANCHOR_API_KEY;
-  private static BASE_URL = 'https://api.getanchor.co/v1';
+  private static rail() {
+    return new AnchorPaymentRail();
+  }
 
-  /**
-   * Initiates a NIP (NIBSS Instant Payment) transfer.
-   */
   static async transfer(data: {
     amount: number;
     source_account: string;
@@ -16,22 +19,13 @@ export class AnchorService {
     destination_bank_code: string;
     narration: string;
   }) {
-    console.log(`[Anchor] Requesting transfer of ₦${data.amount} to ${data.destination_account}`);
-    
-    // In a real implementation:
-    // const response = await axios.post(`${this.BASE_URL}/transfers`, {
-    //   amount: data.amount * 100, // Convert to kobo
-    //   source_account_id: data.source_account,
-    //   beneficiary: {
-    //     account_number: data.destination_account,
-    //     bank_code: data.destination_bank_code
-    //   },
-    //   description: data.narration
-    // }, { headers: { 'x-anchor-key': this.API_KEY } });
-    
-    return {
-      status: 'SUCCESS',
-      id: `ANCHOR-${Math.random().toString(36).substring(7).toUpperCase()}`
-    };
+    return this.rail().initiateTransfer({
+      amount: data.amount,
+      sourceAccount: data.source_account,
+      sourceBankCode: '',
+      destinationAccount: data.destination_account,
+      destinationBankCode: data.destination_bank_code,
+      narration: data.narration,
+    }, `anchor-transfer-${Date.now()}`);
   }
 }
