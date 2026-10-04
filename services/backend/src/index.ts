@@ -125,6 +125,13 @@ fastify.post('/merchant-assisted-enroll', { schema: assistedEnrollSchema }, asyn
             accountName: acc.accountName || fullName,
             isDefault: index === 0,
           }))
+        },
+        biometricIdentities: {
+          create: {
+            provider: biometric.provider,
+            providerReference: biometric.providerReference,
+            modality: biometric.modality,
+          }
         }
       },
       include: { accounts: true }
