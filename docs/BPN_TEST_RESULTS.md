@@ -312,3 +312,22 @@ Observed: Source/configuration corrected. Physical Seller build remains blocked 
 Result: PASS (source/configuration only).
 
 Remaining risk: no physical Android build or camera capture has been executed; merchant-assisted backend now requires merchant authentication and the mobile client does not embed the merchant secret.
+
+
+## 2026-10-04 — Vercel backend build failure diagnosed and corrected
+
+Initial deployment: `dpl_4kt1qJifV1muwsBtNPbJx9XLuRS6`
+
+Observed Vercel build errors:
+- Prisma generated client did not contain the already-migrated `enrollmentMethod` field because `schema.prisma` had drifted from the migration history.
+- Prisma model types therefore also retained non-null `phoneNumber`.
+- Two biometric-provider imports lacked required `.js` extensions under NodeNext/ESM TypeScript resolution.
+
+Corrections:
+- aligned `schema.prisma` with the `20261004190000_enrollment_method` migration;
+- added `prisma generate && tsc` to the build;
+- corrected biometric-provider ESM import extensions.
+
+Result: ROOT CAUSE IDENTIFIED / FIX COMMITTED / REDEPLOY PENDING.
+
+Remaining risk: the deployed backend still requires legitimate PostgreSQL, Redis, Anchor and biometric assertion configuration before runtime can be considered healthy.
