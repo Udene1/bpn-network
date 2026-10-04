@@ -424,31 +424,47 @@ fastify.post('/match-and-pay', { schema: paySchema }, async (request, reply) => 
     narration: `BPN Biometric Payment – Session ${sessionToken}`,
   });
 
-  // 4. Record transaction
+  // 4. Record the authoritative rail reference and status.
+  // Never generate a synthetic bank reference after the rail has already
+  // returned its own correlation identifier.
+  const txnStatus =
+    result.status === 'COMPLETED' || result.status === 'successful'
+      ? 'COMPLETED'
+      : result.status === 'FAILED' || result.status === 'failed'
+        ? 'FAILED'
+        : 'PENDING';
+
   const txn = await prisma.transaction.create({
     data: {
       buyerId: matchedUser.id,
       amount: session.amount,
       sellerId: session.sellerId,
-      status: 'PENDING',
-      bankReference: 'REF-' + Math.random().toString(36).substring(7).toUpperCase(),
+      status: txnStatus,
+      bankReference: result.reference,
     },
   });
 
-  request.log.info({ 
-    txnId: txn.id, 
-    buyerId: matchedUser.id, 
-    sellerId: session.sellerId, 
-    amount: session.amount 
+  request.log.info({
+    txnId: txn.id,
+    buyerId: matchedUser.id,
+    sellerId: session.sellerId,
+    amount: session.amount,
+    railStatus: result.status,
+    bankReference: result.reference,
   }, 'Transaction Authorized');
 
-  // 5. Audit log & Session Cleanup
+  // 5. Audit the actual state and clean up the transient session.
   await RedisService.del(`session:${sessionToken}`);
   await AuditService.log({
-    action: 'TRANSACTION_SUCCESS',
+    action: txnStatus === 'COMPLETED' ? 'TRANSACTION_COMPLETED' : 'TRANSACTION_INITIATED',
     userId: matchedUser.id,
     entityId: txn.id,
-    metadata: { ref: txn.bankReference, amount: session.amount },
+    metadata: {
+      ref: txn.bankReference,
+      amount: session.amount,
+      status: txnStatus,
+      railStatus: result.status,
+    },
     request
   });
 
