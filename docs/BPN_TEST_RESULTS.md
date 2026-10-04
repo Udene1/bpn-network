@@ -53,3 +53,20 @@ Existing BPN test suites cover portions of API, security, E2E, recovery, dashboa
 
 ## Rule
 Never write tested when only source inspection occurred. Distinguish source inspection, unit tests, integration tests, device tests, staging tests and production verification.
+
+
+## 2026-10-04 — Platform-neutral seller biometric boundary
+Commit series: 65867f45, 1057b06e, 2777325c, 757b2d69
+Environment: GitHub repository; source-level verification only.
+Scope: Add Android/iOS platform detection, seller provider registry boundary, explicitly demote device-local React Native biometrics to legacy compatibility, and define the real-device biometric POC matrix.
+Expected behavior:
+- Seller biometric selection is platform-aware without putting platform logic into payment code.
+- Device-local biometric signatures are not represented as fingerprint templates.
+- Real SDK integration remains blocked until an approved provider is selected.
+Observed behavior:
+- Platform detection and provider registry are present.
+- Legacy sensor is explicitly documented as device-local and unsuitable for cross-device customer identification.
+- POC defines Android-to-Android, iPhone-to-iPhone and cross-platform tests.
+Result: BLOCKED
+Reason: No production biometric SDK has been integrated and no real-device test has been executed.
+Remaining risk: Checkout still uses the legacy biometric path until the selected provider adapter is implemented and verified.
