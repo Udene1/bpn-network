@@ -1,4 +1,5 @@
 import { BpnBiometricProvider } from './bpn-biometric-provider';
+import { BpnAfisProvider } from './bpn-afis-provider';
 
 /**
  * Production biometric provider selection.
@@ -16,9 +17,13 @@ export function getBpnBiometricProvider(): BpnBiometricProvider {
     );
   }
 
+  if (provider === 'bpn-afis-experimental' || provider === 'afis') {
+    return new BpnAfisProvider();
+  }
+
   throw new Error(
     'BPN biometric provider "' +
       provider +
-      '" is not installed. Configure an approved production SDK adapter before enabling biometric payments.'
+      '" is not installed. Configure an approved provider adapter before enabling biometric payments.'
   );
 }
