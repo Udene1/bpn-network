@@ -8,6 +8,8 @@ import { AuthService } from './services/auth.service.js';
 import { NotificationService } from './services/notification.service.js';
 import { RedisService } from './services/redis.service.js';
 import { FraudService } from './services/fraud.service.js';
+import { BpnCredentialService } from './services/bpn-credential.service.js';
+import { BpnAuthorizationService } from './services/bpn-authorization.service.js';
 
 const fastify = Fastify({ logger: true });
 await fastify.register(cors, { origin: true });
@@ -72,30 +74,32 @@ fastify.post('/login', async (request) => {
 const enrollSchema = {
   body: {
     type: 'object',
-    required: ['bvn', 'fullName', 'phoneNumber', 'template'],
+    required: ['bvn', 'fullName', 'phoneNumber'],
     properties: {
       bvn: { type: 'string', minLength: 11, maxLength: 11 },
       fullName: { type: 'string' },
       phoneNumber: { type: 'string' },
       template: { type: 'string' },
+      publicKey: { type: 'string', minLength: 100 },
       bankAccounts: { type: 'array' }
     }
   }
 };
 fastify.post('/enroll', { schema: enrollSchema }, async (request, reply) => {
-  const { bvn, fullName, phoneNumber, template, bankAccounts } = request.body as any;
+  const { bvn, fullName, phoneNumber, template, publicKey, bankAccounts } = request.body as any;
 
   if (!bvn || bvn.length !== 11) return reply.status(400).send({ error: 'Invalid BVN (must be 11 digits)' });
 
   try {
-    const encryptedTemplate = BiometricService.encryptTemplate(template);
+    const encryptedTemplate = template ? BiometricService.encryptTemplate(template) : null;
 
     const user = await prisma.user.create({
       data: {
         bvn,
         fullName,
         phoneNumber,
-        biometricTemplate: { create: { templateHash: encryptedTemplate } },
+        ...(encryptedTemplate ? { biometricTemplate: { create: { templateHash: encryptedTemplate } } } : {}),
+        ...(publicKey ? { credentials: { create: { id: BpnCredentialService.generateCredentialId(), publicKey } } } : {}),
         accounts: {
           create: (bankAccounts || []).map((acc: any) => ({
             bankCode: acc.bankCode,
@@ -128,7 +132,8 @@ fastify.post('/enroll', { schema: enrollSchema }, async (request, reply) => {
       redirectUrl = mandate.redirectUrl;
     }
 
-    return { status: 'SUCCESS', userId: user.id, redirectUrl };
+    const credential = await prisma.bpnCredential.findFirst({ where: { userId: user.id, status: 'ACTIVE' }, select: { id: true } });
+    return { status: 'SUCCESS', userId: user.id, credentialId: credential?.id, redirectUrl };
   } catch (err: any) {
     request.log.error(err, 'Enrollment failed');
     return reply.status(500).send({ error: 'Enrollment failed. Please try again later.' });
@@ -177,6 +182,60 @@ fastify.post('/invoice', { schema: invoiceSchema }, async (request) => {
   await RedisService.set(`session:${sessionToken}`, { sellerId, amount }, 120);
 
   return { token: sessionToken, sellerId, amount, expiresAt: new Date(Date.now() + 120 * 1000) };
+});
+
+// ─── POST /payment/challenge ──────────────────────────────────
+// Creates a payment-specific challenge. The customer authenticator signs this payload
+// after local biometric verification; BPN never receives the fingerprint itself.
+fastify.post('/payment/challenge', async (request, reply) => {
+  const { sessionToken, credentialId } = request.body as any;
+  if (!sessionToken || !credentialId) return reply.status(400).send({ error: 'sessionToken and credentialId are required' });
+
+  const session = await RedisService.get('session:' + sessionToken);
+  if (!session) return reply.status(404).send({ error: 'Session expired or not found' });
+
+  const credential = await prisma.bpnCredential.findUnique({ where: { id: credentialId }, include: { user: true } });
+  if (!credential || credential.status !== 'ACTIVE') return reply.status(404).send({ error: 'BPN credential not found or revoked' });
+
+  const challenge = await BpnAuthorizationService.createChallenge(sessionToken, credential.id, session.sellerId, session.amount);
+  return { status: 'CHALLENGE_CREATED', challenge };
+});
+
+// ─── POST /payment/authorize ─────────────────────────────────
+// Accepts a portable BPN authorization proof. The proof, not biometric data,
+// is the network primitive used to authorize the payment.
+fastify.post('/payment/authorize', async (request, reply) => {
+  const proof = request.body as any;
+  if (!proof?.sessionToken || !proof?.credentialId || !proof?.sellerId || proof.amount === undefined || !proof?.signature) {
+    return reply.status(400).send({ error: 'Incomplete BPN authorization proof' });
+  }
+
+  const challenge = await BpnAuthorizationService.consumeChallenge(proof);
+  if (!challenge) return reply.status(401).send({ error: 'Invalid, expired, or already-used authorization challenge' });
+  if (challenge.sellerId !== proof.sellerId || challenge.amount !== proof.amount) {
+    return reply.status(401).send({ error: 'Authorization proof does not match payment challenge' });
+  }
+
+  const credential = await prisma.bpnCredential.findUnique({ where: { id: proof.credentialId }, include: { user: { include: { accounts: true } } } });
+  if (!credential || credential.status !== 'ACTIVE') return reply.status(401).send({ error: 'BPN credential is not active' });
+  if (!BpnCredentialService.verifyAuthorizationProof(credential.publicKey, proof)) {
+    return reply.status(401).send({ error: 'BPN authorization proof verification failed' });
+  }
+
+  const user = credential.user;
+  const fraudResult = await FraudService.performChecks(user.id, user.bvn, challenge.amount);
+  if (!fraudResult.safe) return reply.status(403).send({ error: 'Transaction blocked by risk controls' });
+
+  const mainAccount = user.accounts.find((account: any) => account.isDefault) || user.accounts[0];
+  if (!mainAccount || !mainAccount.mandateId) return reply.status(400).send({ error: 'No active direct debit mandate found for this account.' });
+
+  const result = await PaymentService.executeMandatePayment({ amount: challenge.amount, mandateId: mainAccount.mandateId, narration: 'BPN Payment – ' + challenge.sessionToken });
+  const txn = await prisma.transaction.create({ data: { buyerId: user.id, amount: challenge.amount, sellerId: challenge.sellerId, status: 'PENDING', bankReference: result.reference } });
+  await AuditService.log({ action: 'BPN_PAYMENT_AUTHORIZED', userId: user.id, entityId: txn.id, metadata: { credentialId: credential.id, amount: challenge.amount, reference: result.reference }, request });
+  await RedisService.del('session:' + challenge.sessionToken);
+
+  const maskedProfile = BiometricService.getMaskedBuyerProfile(user);
+  return { status: txn.status, reference: txn.bankReference, buyerName: maskedProfile.maskedName, buyerBank: maskedProfile.bankName, amount: challenge.amount, authorization: 'BPN_CREDENTIAL' };
 });
 
 // ─── POST /match-and-pay ──────────────────────────────────────
