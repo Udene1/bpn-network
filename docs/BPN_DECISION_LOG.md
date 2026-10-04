@@ -143,3 +143,24 @@ Test matrix:
 - Android A enroll -> iPhone A identify, if image quality/engine compatibility permits
 - iPhone A enroll -> Android A identify, if image quality/engine compatibility permits
 Constraint: A successful capture alone is not a successful biometric match. Record image quality, extraction result, score, threshold, latency, false-match/non-match observations and failure conditions.
+
+## Decision 014 — Self-enrollment is the default; merchant-assisted enrollment is an exception
+Date: 2026-10-04
+Decision: Buyers normally enroll on their own phone. Merchant-assisted enrollment exists only for buyers who do not have a phone or cannot complete self-enrollment.
+
+Normal path:
+- buyer uses their own phone for enrollment;
+- the phone protects the buyer's local biometric credential;
+- the buyer does not need the phone at checkout after enrollment.
+
+Assisted path:
+- merchant uses an ordinary smartphone to capture the buyer's fingerprint;
+- buyer identity, bank account and explicit consent are collected during the assisted flow;
+- the biometric provider receives the real capture and returns a provider reference;
+- BPN records the enrollment method as MERCHANT_ASSISTED;
+- raw fingerprint images are not persisted by BPN;
+- bank mandate authorization remains a separate customer authorization step.
+
+Reason: This preserves the original BPN inclusion goal without turning merchant enrollment into the normal path. A buyer with a phone should retain control of their biometric enrollment, while people without phones must still be able to participate.
+
+Constraint: The current merchant-assisted route is experimental until real-device fingerprint quality, provider extraction, gallery persistence/security, liveness/PAD, authorization binding and banking-rail tests pass.
