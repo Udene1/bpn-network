@@ -73,4 +73,9 @@ It must demonstrate:
 
 **NO PROVIDER SELECTED.**
 
+### 2026-10-04 evidence update
+Official IDEMIA documentation was rechecked before implementation work. It explicitly documents ordinary smartphone-camera fingerprint acquisition, liveness, biometric extraction, 1:1/1:N comparison, and native Android/iOS integration. It also documents vendor-controlled artifact distribution and licensing requirements. This makes IDEMIA the leading technical candidate, but access, licensing and the BPN gallery/assertion architecture remain unresolved.
+
+Source: IDEMIA Capture SDK official documentation.
+
 Innovatrics and IDEMIA are viable candidates worth vendor evaluation. The next practical step is obtaining SDK access/trials and building a throwaway biometric-provider proof of concept against the BPN interface. No vendor should yet be treated as part of the production architecture.
