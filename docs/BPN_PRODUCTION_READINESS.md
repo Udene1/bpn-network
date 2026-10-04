@@ -51,6 +51,11 @@ This is the long-lived engineering plan for taking BPN from prototype/hackathon 
 - [ ] Backups, recovery, observability, alerting and disaster recovery.
 - [ ] Load, failure-injection and mobile device testing.
 
+## Temporary external infrastructure blockers
+- [ ] AWS App Builder Seller runtime restored or replaced with a usable deployment.
+- [ ] Physical-device biometric capture resumed after Seller runtime becomes available.
+- [x] Blocked runtime is recorded as BLOCKED rather than converted into simulated evidence.
+
 ## Testing and evidence
 - [x] Durable test-results record exists.
 - [x] Durable engineering decision log exists.
