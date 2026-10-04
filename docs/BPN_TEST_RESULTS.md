@@ -331,3 +331,22 @@ Corrections:
 Result: ROOT CAUSE IDENTIFIED / FIX COMMITTED / REDEPLOY PENDING.
 
 Remaining risk: the deployed backend still requires legitimate PostgreSQL, Redis, Anchor and biometric assertion configuration before runtime can be considered healthy.
+
+## 2026-10-04 — Funding-account selection bound to authorization
+
+Commits: 4858af31, c31d7a0f, 6fd3cfc8
+
+Scope: Extend the BPN authorization challenge/proof so a buyer with multiple linked bank accounts can explicitly select a funding account before authorization.
+
+Expected:
+- challenge may carry a selected account ID;
+- selected account must belong to the credential owner;
+- the selected account is included in the signed authorization payload;
+- authorization cannot silently switch to another account;
+- challenge response exposes masked account choices for explicit confirmation.
+
+Observed: Source implementation now validates ownership, binds account selection into the challenge/proof and chooses the bound account during payment. No payment runtime executed.
+
+Result: IMPLEMENTED / RUNTIME UNVERIFIED.
+
+Remaining risk: account ownership verification, mandate state and physical/mobile confirmation UI remain unverified.
