@@ -97,3 +97,9 @@ BPN is production-ready only when identity, authentication, payment rails, trans
 - [ ] Obtain usable Seller app runtime/build outside AWS App Builder.
 - [ ] Physical Android capture and cross-device AFIS identification.
 - [ ] iOS physical capture validation.
+
+- [x] Diagnose initial Vercel backend build failure.
+- [x] Align Prisma schema and migration history.
+- [x] Generate Prisma client during build.
+- [x] Correct NodeNext ESM imports.
+- [ ] Confirm successful Vercel backend build after fixes.
