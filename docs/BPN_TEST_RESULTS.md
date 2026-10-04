@@ -89,3 +89,33 @@ Observed behavior: IDEMIA officially documents smartphone-camera fingerprint cap
 Result: PASS (documentation capability gate only)
 Decision: IDEMIA becomes the leading technical candidate but is NOT selected until SDK access and a real-device POC are completed.
 Remaining risk: No real SDK binary, credentials, merchant-device capture, cross-device gallery test, or financial checkout test has been performed.
+
+
+## 2026-10-04 — Own biometric engine foundation
+
+Environment: GitHub repository; source-level implementation only.  
+Scope: Add BPN experimental biometric engine using a real AFIS/SourceAFIS-compatible recognition path, with enrollment, 1:N identification, 1:1 verification and explicit threshold handling.
+
+Expected behavior:
+- No mock identity or synthetic match result.
+- Real fingerprint images are processed.
+- Enrollment creates a real biometric representation in the POC gallery.
+- Identification ranks real candidates.
+- Liveness is explicitly reported as unimplemented rather than claimed.
+
+Observed behavior:
+- Engine service and test contract added under services/biometric-engine.
+- Gallery is intentionally in-memory.
+- Health endpoint explicitly reports liveness as UNIMPLEMENTED.
+- Threshold is caller-controlled.
+- Invalid image input is rejected.
+
+Result: PASS (source-level implementation only)
+
+Remaining risk:
+- Dependencies have not been installed/executed in CI yet.
+- No real fingerprint image has been processed in this repository environment.
+- No smartphone-camera capture has been tested.
+- No cross-device identification has been performed.
+- No liveness/PAD exists.
+- No production biometric security claim is permitted.
