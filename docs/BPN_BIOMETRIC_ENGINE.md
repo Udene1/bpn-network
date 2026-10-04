@@ -8,7 +8,7 @@ The first implementation uses an open recognition core behind a BPN-owned engine
 
 ## Recognition baseline
 
-The initial engine uses the AFIS Python toolkit with its SAFIS/SourceAFIS-compatible matching path. SourceAFIS supports fingerprint image processing and 1:1/1:N matching and its Java implementation is usable on Android API 24+. The AFIS toolkit provides minutiae extraction, matching and quality tooling.
+The initial engine uses the AFIS Python toolkit with its SAFIS/SourceAFIS-compatible matching path. The deployed experimental service currently uses `SafisExtractor`; the threshold remains provisional and must be calibrated on BPN's real capture dataset. SourceAFIS supports fingerprint image processing and 1:1/1:N matching and its Java implementation is usable on Android API 24+. The AFIS toolkit provides minutiae extraction, matching and quality tooling.
 
 ## Why this is real
 
