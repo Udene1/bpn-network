@@ -98,7 +98,7 @@ export default function POSScreen() {
         
         const payData = await payRes.json();
 
-        if (payRes.ok && payData.status !== 'FAILED') {
+        if (payRes.ok && payData.status === 'COMPLETED') {
           handleSuccess(payData);
         } else {
           setAttempts(prev => prev + 1);
