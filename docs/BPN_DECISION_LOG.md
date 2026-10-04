@@ -131,3 +131,15 @@ Follow-up: Validate real Android camera capture and cross-device 1:N matching be
 Date: 2026-10-04
 Decision: Remove random fallback values from production-facing BPN metrics and use cryptographically secure randomness for transaction/session identifiers.
 Reason: The project is being built as a real product and test evidence must correspond to actual state.
+
+## Decision 013 — Physical-device test matrix uses the available phones
+Date: 2026-10-04
+Decision: The first real BPN biometric test will use two physical Infinix Android phones as the primary cross-device validation pair. Two iPhones are a secondary capture/cross-platform experiment if the Expo camera build runs on them.
+Reason: The core risk is whether a real fingerprint captured by one ordinary smartphone can be recognized against a previously enrolled fingerprint from another ordinary smartphone. Physical-device evidence is required; emulator or BiometricPrompt evidence is insufficient.
+Test matrix:
+- Android A enroll -> Android B identify
+- Android B enroll -> Android A identify
+- iPhone A enroll -> iPhone B identify, if available
+- Android A enroll -> iPhone A identify, if image quality/engine compatibility permits
+- iPhone A enroll -> Android A identify, if image quality/engine compatibility permits
+Constraint: A successful capture alone is not a successful biometric match. Record image quality, extraction result, score, threshold, latency, false-match/non-match observations and failure conditions.
