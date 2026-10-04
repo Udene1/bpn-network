@@ -350,3 +350,20 @@ Observed: Source implementation now validates ownership, binds account selection
 Result: IMPLEMENTED / RUNTIME UNVERIFIED.
 
 Remaining risk: account ownership verification, mandate state and physical/mobile confirmation UI remain unverified.
+
+
+## 2026-10-04 — Independent Seller Android test build path
+
+Commit: e89b289d286467d66a7b153756e819cc55c6bfcb
+
+Environment: GitHub Actions source configuration.
+
+Scope: Remove dependence on AWS App Builder for the next physical Seller capture experiment by adding an independent CI path that generates an installable Android debug APK from the Expo Seller project.
+
+Expected: When GitHub Actions executes the workflow, it should prebuild the Expo app, compile the Android project and publish `app-debug.apk` as an artifact.
+
+Observed: Workflow configuration committed successfully. Execution is pending; no APK is claimed as built yet.
+
+Result: IMPLEMENTED / EXECUTION UNVERIFIED.
+
+Remaining risk: Expo/Gradle compatibility, Android build time, camera runtime behavior and network reachability to the Vercel biometric engine remain unverified.
