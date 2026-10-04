@@ -42,10 +42,10 @@ export default function EnrollmentScreen() {
       return;
     }
 
-    const signature = await BiometricSensor.captureFingerprint('Enroll your fingerprint to secure BPN');
+    const credential = await BiometricSensor.createBpnCredential();
     
-    if (!signature) {
-      Alert.alert("Enrollment Failed", "Biometric capture is required.");
+    if (!credential) {
+      Alert.alert("Enrollment Failed", "Biometric authentication is required to create your BPN credential.");
       return;
     }
 
@@ -56,7 +56,7 @@ export default function EnrollmentScreen() {
         bvn,
         fullName: fullName || 'New User',
         phoneNumber: '080' + Math.floor(Math.random() * 100000000), // Mock phone
-        template: signature,
+        publicKey: credential.publicKey,
         bankAccounts: [{ bankCode, accountNumber, accountName: fullName || 'New User' }]
       };
 
@@ -151,7 +151,7 @@ export default function EnrollmentScreen() {
           <View style={styles.consentRow}>
             <Switch value={consent} onValueChange={setConsent} trackColor={{true: '#1A237E'}} />
             <Text style={styles.consentText}>
-              I authorize BPN to store an encrypted hash of my biometric for payment authorization (NDPR Compliant).
+              I authorize BPN to create and use a biometric-protected cryptographic credential for payment authorization. My biometric data remains on my device.
             </Text>
           </View>
 
