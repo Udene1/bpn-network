@@ -156,3 +156,11 @@ Remaining risk:
 - Camera capture UI has not yet been executed on either Infinix device.
 - No fingerprint image has been processed by the AFIS engine from a physical phone.
 - Cross-device identification, image quality, liveness/PAD and latency remain unverified.
+
+## 2026-10-04 — Real-device capture harness
+Environment: BPN Seller Expo app; implementation preparation only.
+Scope: Add a real camera capture screen that sends captured JPEG bytes to the BPN biometric-engine enrollment/1:N identification API. The screen is intentionally separate from payment checkout until physical capture quality and cross-device matching are proven.
+Expected: Use the phone camera, not Android BiometricPrompt or a mock signature; enrollment and identification send actual captured image data; no payment is executed by this harness.
+Observed: Seller app now has a dedicated Biometric Capture route using expo-camera. Engine URL is configurable with EXPO_PUBLIC_BPN_BIOMETRIC_ENGINE_URL. Capture returns base64 JPEG data and calls /v1/enroll or /v1/identify.
+Result: PASS (source/configuration implementation only)
+Remaining risk: Not yet executed on the two Infinix Android phones. Fingerprint image usability, focus, lighting, extraction, cross-device identification and latency remain unverified. iOS capture is implemented through Expo camera but unverified on the two iPhones. Liveness/PAD remains UNIMPLEMENTED.
