@@ -203,3 +203,19 @@ Remaining risk: Not yet executed on the two Infinix Android phones. Fingerprint 
 **Result:** IMPLEMENTED / UNVERIFIED.
 
 **Remaining risk:** provider references currently point to an in-memory experimental gallery; deletion/revocation, encrypted persistent gallery, gallery synchronization, liveness/PAD and cross-device matching remain outstanding.
+
+## 2026-10-04 — AFIS engine deployment
+
+**Environment:** Vercel production deployment, FastAPI/Python runtime.
+
+**Scope:** Make the experimental real biometric engine reachable from physical Android devices.
+
+**Method:** Created Vercel project `bpn-biometric-engine` linked to `Udene1/bpn-network`, root `services/biometric-engine`, production branch `main`. Vercel detected FastAPI and built the Python function.
+
+**Observed:** Build completed successfully in 12s. The build reported the `afis` package was force-bundled because no compatible wheel was detected for the Vercel runtime, with a 321.69 MB bundle before optimization. Deployment state was still BUILDING at verification time, so HTTP health verification is pending.
+
+**Client configuration:** Seller biometric capture harness now defaults to the deployed engine URL while still allowing an explicit override.
+
+**Result:** DEPLOYED / RUNTIME HEALTH UNVERIFIED.
+
+**Important limitation:** The AFIS gallery is in-memory. This deployment is only a physical-device experiment; it is not a production biometric store and must not be used for financial authorization.
