@@ -72,10 +72,12 @@ This preserves the existing BPN credential/payment-authorization work while allo
 
 The biometric provider identifies the BPN identity. The BPN authorization layer proves/records authorization of the specific payment.
 
-## Decision 007 — Mock biometric provider is test-only
+## Decision 007 — No mock biometric provider in the product path
 
 **Date:** 2026-10-04  
-**Decision:** A mock provider may exist for deterministic development and CI, but it must never be treated as production biometric security or evidence of real biometric interoperability.
+**Decision:** BPN will not maintain a mock biometric provider in the application path. If a real provider is unavailable, biometric checkout remains explicitly unavailable rather than simulating identity.
+
+**Reason:** We have limited engineering time before Zecathon. A mock would create cleanup debt and could be mistaken for evidence that the merchant-phone biometric flow works. Deterministic unit tests should test BPN contracts and authorization cryptography without pretending to perform biometric recognition.
 
 ## Next decision gate
 
