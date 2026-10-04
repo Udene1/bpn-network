@@ -90,3 +90,10 @@ BPN is production-ready only when identity, authentication, payment rails, trans
 - [ ] Configure Anchor API/webhook secrets.
 - [ ] Configure BPN biometric engine URL/assertion secret.
 - [ ] Execute deployed runtime smoke/security tests.
+
+## Seller app deployment / capture
+- [x] Stable Vercel biometric-engine alias configured.
+- [x] Expo camera plugin configuration corrected.
+- [ ] Obtain usable Seller app runtime/build outside AWS App Builder.
+- [ ] Physical Android capture and cross-device AFIS identification.
+- [ ] iOS physical capture validation.
