@@ -294,3 +294,21 @@ Result: DEPLOYMENT PREPARED / RUNTIME UNVERIFIED.
 Blocker: The new Vercel project does not yet have the required production secrets/infrastructure values (DATABASE_URL, REDIS_URL, JWT_SECRET, BPN_MERCHANT_API_KEY, Anchor credentials/webhook secret, and any biometric-engine configuration) configured. No secret values were invented or copied into source.
 
 Next step: provision legitimate environment values, then execute deployed health, auth-negative, payment-state and Anchor webhook verification tests.
+
+## 2026-10-04 — Seller capture configuration cleanup
+
+Commits: 3f11910b, feaa16a9
+
+Environment: GitHub repository; source/configuration inspection.
+
+Scope:
+- replace stale biometric-engine deployment URL in Seller config with the stable Vercel project alias;
+- correct duplicate/misplaced Expo `plugins` configuration so `expo-camera` is declared under `expo.plugins`.
+
+Expected: A future Seller build should point at the current Vercel biometric engine by default and Expo should process the camera plugin from valid app configuration.
+
+Observed: Source/configuration corrected. Physical Seller build remains blocked by AWS App Builder availability.
+
+Result: PASS (source/configuration only).
+
+Remaining risk: no physical Android build or camera capture has been executed; merchant-assisted backend now requires merchant authentication and the mobile client does not embed the merchant secret.
