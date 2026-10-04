@@ -1,0 +1,25 @@
+name: BPN Biometric Engine
+
+on:
+  push:
+    paths:
+      - 'services/biometric-engine/**'
+  pull_request:
+    paths:
+      - 'services/biometric-engine/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        working-directory: services/biometric-engine
+        run: python -m pip install --upgrade pip && pip install -r requirements.txt && pip install pytest
+      - name: Run biometric engine tests
+        working-directory: services/biometric-engine
+        run: pytest -q
