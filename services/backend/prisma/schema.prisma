@@ -24,6 +24,7 @@ model User {
   pinHash           String?   // Hashed numeric PIN
   recoveryPhone     String?   // For OTP fallback
   biometricTemplate BiometricTemplate?
+  credentials       BpnCredential[]
   accounts          BankAccount[]
   transactions      Transaction[]
   createdAt         DateTime  @default(now())
@@ -79,4 +80,16 @@ model AuditLog {
   ip        String?
   userAgent String?
   createdAt DateTime @default(now())
+}
+
+model BpnCredential {
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  publicKey String
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+
+  @@index([userId])
 }
