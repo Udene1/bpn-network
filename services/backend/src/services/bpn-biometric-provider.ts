@@ -43,11 +43,13 @@ export interface BpnBiometricProvider {
   enroll(input: {
     userId: string;
     modality: BpnBiometricModality;
+    capture?: { imageBase64: string; imageMime?: string };
   }): Promise<BpnBiometricEnrollment>;
 
   identify(input: {
     challenge: BpnBiometricChallenge;
     modality: BpnBiometricModality;
+    capture?: { imageBase64: string; imageMime?: string };
   }): Promise<BpnBiometricIdentification>;
 
   verifyAssertion(input: {
