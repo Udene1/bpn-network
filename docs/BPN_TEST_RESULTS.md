@@ -23,27 +23,31 @@ What was verified: source-level inspection confirmed separation between biometri
 What remains unverified: TypeScript compilation, Prisma generation/migration application, mobile build, backend test suite, API E2E flow, Redis-backed challenge lifecycle, and real-device biometric/key behavior.
 Risk: The credential protocol is an implementation foundation, not evidence of production interoperability or a complete end-to-end payment.
 
-
 ## 2026-10-04 — Payment status integrity + CI verification attempt
-Commit series: ee24dbd4, 77bf38a4, 8ac13be
+Commit series: ee24db4, 77bf38a, 8ac13be
 Environment: GitHub repository / intended GitHub Actions Ubuntu runner.
-Scope: Persist the actual banking-rail result status for credential-authorized payments; use a stable session-derived idempotency key; prevent the seller POS from displaying PENDING as PAYMENT SUCCESSFUL; add backend CI verification workflow.
-Expected behavior:
-- A rail response of COMPLETED/successful becomes a COMPLETED BPN transaction.
-- PENDING remains PENDING until an authoritative rail update.
-- FAILED becomes FAILED.
-- Repeated authorization of the same payment session uses the same idempotency key.
-- The seller UI only shows a successful receipt for COMPLETED.
-- CI runs Prisma generation and TypeScript compilation.
-Observed behavior:
-- Source changes were committed successfully.
-- GitHub Actions workflow file is present on main.
-- GitHub Actions API currently reports zero workflow runs for the repository, so no runner execution result is available yet.
+Scope: Persist actual banking-rail result status; use stable session-derived idempotency; prevent PENDING from displaying as payment success; add backend CI.
+Observed behavior: source changes committed; workflow present; GitHub Actions API exposed zero workflow runs.
 Result: BLOCKED
-Failure/root cause: No workflow run was exposed by the repository Actions API after the workflow commit; the underlying reason (Actions disabled, connector visibility, or trigger behavior) is not established from the available evidence.
-Fix commits: ee24dbd4, 77bf38a4, 8ac13be
-Remaining risk: TypeScript compilation and runtime behavior remain unverified. The seller's primary biometric path still depends on the legacy device-level biometric/template flow and must be replaced by a genuine BPN authenticator design before production.
+Remaining risk: TypeScript compilation and runtime behavior remain unverified. Seller primary biometric path remained legacy.
 
+## 2026-10-04 — Biometric provider abstraction
+Commit series: b99429a4, a3ae074a, c380b7eb, e9f6342e
+Environment: GitHub repository; source-level verification only.
+Scope: Introduce vendor-neutral BpnBiometricProvider boundary, provider factory, durable architecture decision log, and production-readiness updates.
+Expected behavior:
+- BPN core must not depend directly on a biometric vendor SDK.
+- Provider boundary must model enrollment, 1:N identification and assertion verification.
+- Merchant-phone biometric recognition remains the target experience.
+- No custom biometric hardware is part of the product architecture.
+Observed behavior:
+- Provider interface and configuration boundary are present.
+- Decision log records the software/SDK-only decision and separation of biometric identification from payment authorization.
+- Production readiness tracks SDK selection, 1:N validation, liveness, privacy and merchant-phone integration as open work.
+Result: BLOCKED
+Reason: No real biometric SDK has been integrated or tested yet, and project compilation has not been rerun after these changes.
+Remaining risk: The provider contract is architectural groundwork, not evidence that a specific SDK can recognize the same enrolled fingerprint across different Android phones.
+ 
 ## Previous repository test evidence
 Existing BPN test suites cover portions of API, security, E2E, recovery, dashboard and Anchor behavior. Historical results should remain in the repository and be updated with new runs rather than overwritten.
 
