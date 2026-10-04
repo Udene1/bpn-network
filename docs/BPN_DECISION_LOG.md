@@ -176,3 +176,13 @@ Reason: The BPN biometric thesis requires real camera capture from an ordinary m
 
 Constraint: Record the blocker and its cause in BPN_TEST_RESULTS.md. When a usable Seller runtime or a replacement deployment is available, resume the exact physical-device test matrix rather than changing the acceptance criteria.
 
+
+## Decision 016 — Payment infrastructure must fail closed rather than silently simulate unavailable dependencies
+
+Date: 2026-10-04
+
+Decision: Required production dependencies such as JWT_SECRET, Redis, merchant authentication and Anchor webhook verification must fail closed when missing. BPN will not silently fall back to mock secrets, mock Redis behavior, synthetic watchlists, fake PINs or unverified webhook processing.
+
+Reason: The project is being built as real payment infrastructure. Silent fallbacks make a green test result meaningless and can create security defects that are difficult to detect.
+
+Constraint: Development environments may use explicit local configuration, but the code path must not pretend an unavailable production dependency is working.
