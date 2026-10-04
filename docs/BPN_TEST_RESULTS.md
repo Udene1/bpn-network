@@ -219,3 +219,22 @@ Remaining risk: Not yet executed on the two Infinix Android phones. Fingerprint 
 **Result:** DEPLOYED / RUNTIME HEALTH UNVERIFIED.
 
 **Important limitation:** The AFIS gallery is in-memory. This deployment is only a physical-device experiment; it is not a production biometric store and must not be used for financial authorization.
+
+
+## 2026-10-04 — AWS Seller runtime blocked; continue non-device work
+
+Environment: AWS App Builder Seller application; external runtime availability as observed by the user.
+
+Scope: Attempted transition from source/configuration readiness to the first physical fingerprint capture using the Seller app.
+
+Expected: The AWS-hosted Seller application should be available so a physical Android device can open the BPN biometric capture screen and send a real camera capture to the Vercel biometric engine.
+
+Observed: AWS App Builder is currently unavailable, so the Seller app cannot be used for the planned physical-device capture test at this time.
+
+Result: BLOCKED — external application runtime unavailable.
+
+Root cause: The current Seller runtime depends on AWS App Builder, which is unavailable for the test window. This is an environment/infrastructure blocker, not evidence of biometric-engine failure.
+
+Decision: Do not substitute a mock fingerprint, synthetic match, Android BiometricPrompt signature, or simulated payment success merely to keep the test green. Continue building and validating independent BPN components while preserving the physical-device test as pending.
+
+Next validation required when a usable Seller runtime is available: Infinix Android A enroll -> Vercel AFIS engine -> Infinix Android B identify, with capture quality, extraction, score, threshold, latency and failure behavior recorded.
