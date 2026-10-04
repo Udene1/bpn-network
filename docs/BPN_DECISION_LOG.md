@@ -186,3 +186,13 @@ Decision: Required production dependencies such as JWT_SECRET, Redis, merchant a
 Reason: The project is being built as real payment infrastructure. Silent fallbacks make a green test result meaningless and can create security defects that are difficult to detect.
 
 Constraint: Development environments may use explicit local configuration, but the code path must not pretend an unavailable production dependency is working.
+
+## Decision 017 — Funding account selection is part of the signed payment authorization
+
+Date: 2026-10-04
+
+Decision: When a buyer has multiple linked bank accounts, the selected funding account is an authorization input, not merely UI state. The account ID is bound into the payment challenge and signed authorization proof.
+
+Reason: BPN must not display one account to the customer and debit another account because of backend defaulting or race conditions.
+
+Constraint: If no account is explicitly selected, the current default-account policy may be used. If an account is selected, it must belong to the credential owner and have a usable mandate before payment execution.
