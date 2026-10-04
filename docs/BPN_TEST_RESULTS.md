@@ -255,3 +255,27 @@ Observed: The path now persists `result.reference`, maps the returned rail statu
 Result: PASS (source inspection only).
 
 Remaining risk: Runtime/payment-rail integration, webhook reconciliation, idempotency and the legacy route's overall security remain unverified. This does not make `/match-and-pay` the preferred biometric path; the BPN credential/provider flow remains the intended architecture.
+
+## 2026-10-04 — Backend security, Redis fail-closed, fraud-state and Anchor webhook hardening
+
+Commits: 1cbc1e3d, 1c4203be, ea66cdf4, 8f3c17d7, ae912b4d, 996b608d, d2a310c9
+
+Environment: GitHub repository; source-level inspection. External Anchor webhook documentation verified.
+
+Scope:
+- protect merchant/payment-sensitive routes with a configured BPN merchant key;
+- require JWT_SECRET instead of a source-code fallback;
+- fail startup when Redis cannot connect instead of silently falling back;
+- remove synthetic fraud watchlist entries and count COMPLETED transactions;
+- add atomic Redis idempotency primitive;
+- verify Anchor webhook signatures using the documented HMAC-SHA1 scheme and raw request body;
+- deduplicate Anchor events and reconcile initiated/successful/failed/reversed transfer events;
+- remove the PIN fallback and return the actual payment state.
+
+Expected: security-sensitive paths fail closed when required infrastructure/secrets are absent; fraud state reflects the real transaction state; Anchor events cannot mutate state without signature verification and duplicate protection.
+
+Observed: source changes implement the controls. No deployed backend runtime or live Anchor webhook has been exercised in this change window.
+
+Result: IMPLEMENTED / RUNTIME UNVERIFIED.
+
+Remaining risk: merchant API key lifecycle/rotation, full merchant identity/role model, backend deployment, live Anchor sandbox webhook delivery, reconciliation against Anchor's verify-transfer API, and end-to-end payment remain outstanding.
