@@ -79,3 +79,21 @@ BPN owns:
 POC NOT STARTED.
 
 IDEMIA is currently the strongest documented candidate for this specific requirement because its public documentation explicitly describes fingerprint capture, liveness, 1:1 authentication and 1:N identification using modern Android or iOS smartphones with standard cameras. Actual vendor access, licensing and integration testing are still required before selection. citeturn0search0turn0search1turn0search3
+
+
+## 2026-10-04 — Physical-device test inventory
+
+The first real-device experiment has a practical test pool available:
+- Android: 2 Infinix phones.
+- iOS: 2 iPhones, available for a later cross-platform capture experiment if the camera capture path proves viable.
+
+### Test order
+1. Infinix A: capture/enroll a real test finger.
+2. Infinix B: capture the same finger and attempt 1:N identification.
+3. Repeat with a different finger/person to measure false-match behavior.
+4. Repeat multiple captures of the same finger to measure false-non-match behavior.
+5. Record capture dimensions, image quality, processing time, matching score, configured threshold and result for every attempt.
+6. Only after Android-to-Android behavior is measured, test iPhone-to-iPhone and Android-to-iPhone/iPhone-to-Android if the capture representation is sufficiently compatible.
+
+### Important boundary
+The two Infinix phones and two iPhones are test devices, not evidence that ordinary phone cameras are suitable fingerprint sensors. The experiment must establish whether the captured images contain enough ridge detail for the AFIS pipeline. A failed capture experiment is a valid engineering result and must remain recorded.
