@@ -103,3 +103,10 @@ BPN is production-ready only when identity, authentication, payment rails, trans
 - [x] Generate Prisma client during build.
 - [x] Correct NodeNext ESM imports.
 - [ ] Confirm successful Vercel backend build after fixes.
+
+## Funding account and confirmation
+- [x] Multiple linked accounts represented.
+- [x] Selected account can be bound to transaction authorization.
+- [x] Masked funding-account choices returned before authorization.
+- [ ] Mobile confirmation UI validated on device.
+- [ ] Account ownership/mandate verification against authoritative bank rail.
