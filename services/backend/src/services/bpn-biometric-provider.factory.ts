@@ -1,20 +1,24 @@
 import { BpnBiometricProvider } from './bpn-biometric-provider';
 
 /**
- * Provider selection is configuration-driven so BPN is not coupled to one
- * biometric vendor. The mock/default path is intentionally not a production
- * implementation; it exists only as a wiring boundary until a real provider
- * is selected and integrated.
+ * Production biometric provider selection.
+ *
+ * BPN deliberately has no mock/default biometric implementation. A missing or
+ * unsupported provider is a hard configuration error so a deployment cannot
+ * accidentally present simulated biometric matching as real security.
  */
 export function getBpnBiometricProvider(): BpnBiometricProvider {
-  const provider = (process.env.BPN_BIOMETRIC_PROVIDER || 'mock').toLowerCase();
+  const provider = process.env.BPN_BIOMETRIC_PROVIDER?.trim().toLowerCase();
 
-  switch (provider) {
-    case 'mock':
-      throw new Error(
-        'BPN biometric provider factory is not wired to a production implementation yet.'
-      );
-    default:
-      throw new Error('Unsupported BPN_BIOMETRIC_PROVIDER: ' + provider);
+  if (!provider) {
+    throw new Error(
+      'BPN_BIOMETRIC_PROVIDER is not configured. Biometric payments remain disabled until a real approved provider is installed.'
+    );
   }
+
+  throw new Error(
+    'BPN biometric provider "' +
+      provider +
+      '" is not installed. Configure an approved production SDK adapter before enabling biometric payments.'
+  );
 }
