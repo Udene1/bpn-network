@@ -337,17 +337,20 @@ fastify.post('/invoice', { schema: invoiceSchema }, async (request) => {
 // Creates a payment-specific challenge. The customer authenticator signs this payload
 // after local biometric verification; BPN never receives the fingerprint itself.
 fastify.post('/payment/challenge', async (request, reply) => {
-  const { sessionToken, credentialId } = request.body as any;
+  const { sessionToken, credentialId, accountId } = request.body as any;
   if (!sessionToken || !credentialId) return reply.status(400).send({ error: 'sessionToken and credentialId are required' });
 
   const session = await RedisService.get('session:' + sessionToken);
   if (!session) return reply.status(404).send({ error: 'Session expired or not found' });
 
-  const credential = await prisma.bpnCredential.findUnique({ where: { id: credentialId }, include: { user: true } });
+  const credential = await prisma.bpnCredential.findUnique({ where: { id: credentialId }, include: { user: { include: { accounts: true } } } });
   if (!credential || credential.status !== 'ACTIVE') return reply.status(404).send({ error: 'BPN credential not found or revoked' });
 
-  const challenge = await BpnAuthorizationService.createChallenge(sessionToken, credential.id, session.sellerId, session.amount);
-  return { status: 'CHALLENGE_CREATED', challenge };
+  const selectedAccount = accountId ? credential.user.accounts.find(account => account.id === accountId) : undefined;
+  if (accountId && !selectedAccount) return reply.status(400).send({ error: 'Selected bank account is not linked to this credential owner' });
+  const challenge = await BpnAuthorizationService.createChallenge(sessionToken, credential.id, session.sellerId, session.amount, selectedAccount?.id);
+  const accounts = credential.user.accounts.map(account => ({ id: account.id, bankCode: account.bankCode, accountNumber: `••••${account.accountNumber.slice(-4)}`, accountName: account.accountName, isDefault: account.isDefault }));
+  return { status: 'CHALLENGE_CREATED', challenge, accounts };
 });
 
 // ─── POST /payment/authorize ─────────────────────────────────
@@ -361,7 +364,7 @@ fastify.post('/payment/authorize', async (request, reply) => {
 
   const challenge = await BpnAuthorizationService.getChallenge(proof.sessionToken, proof.credentialId);
   if (!challenge) return reply.status(401).send({ error: 'Invalid, expired, or already-used authorization challenge' });
-  if (challenge.sellerId !== proof.sellerId || challenge.amount !== proof.amount) {
+  if (challenge.sellerId !== proof.sellerId || challenge.amount !== proof.amount || (challenge.accountId || null) !== (proof.accountId || null)) {
     return reply.status(401).send({ error: 'Authorization proof does not match payment challenge' });
   }
 
@@ -376,7 +379,7 @@ fastify.post('/payment/authorize', async (request, reply) => {
   const fraudResult = await FraudService.performChecks(user.id, user.bvn, challenge.amount);
   if (!fraudResult.safe) return reply.status(403).send({ error: 'Transaction blocked by risk controls' });
 
-  const mainAccount = user.accounts.find((account: any) => account.isDefault) || user.accounts[0];
+  const mainAccount = challenge.accountId ? user.accounts.find((account: any) => account.id === challenge.accountId) : (user.accounts.find((account: any) => account.isDefault) || user.accounts[0]);
   if (!mainAccount || !mainAccount.mandateId) return reply.status(400).send({ error: 'No active direct debit mandate found for this account.' });
 
   const result = await PaymentService.executeMandatePayment({ amount: challenge.amount, mandateId: mainAccount.mandateId, narration: 'BPN Payment – ' + challenge.sessionToken, idempotencyKey: `bpn-session-${challenge.sessionToken}` });
