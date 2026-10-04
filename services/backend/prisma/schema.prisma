@@ -25,6 +25,7 @@ model User {
   recoveryPhone     String?   // For OTP fallback
   biometricTemplate BiometricTemplate?
   credentials       BpnCredential[]
+  biometricIdentities BpnBiometricIdentity[]
   accounts          BankAccount[]
   transactions      Transaction[]
   createdAt         DateTime  @default(now())
@@ -91,5 +92,20 @@ model BpnCredential {
   createdAt DateTime @default(now())
   revokedAt DateTime?
 
+  @@index([userId])
+}
+
+model BpnBiometricIdentity {
+  id               String   @id @default(uuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  provider         String
+  providerReference String
+  modality         String   @default("FINGERPRINT")
+  status           String   @default("ACTIVE")
+  createdAt        DateTime @default(now())
+  revokedAt        DateTime?
+
+  @@unique([provider, providerReference])
   @@index([userId])
 }
