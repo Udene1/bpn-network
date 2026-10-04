@@ -19,14 +19,15 @@ export default function EnrollmentScreen() {
   const [step, setStep] = useState(1);
   const [bvn, setBvn] = useState('');
   const [fullName, setFullName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [bankCode, setBankCode] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [consent, setConsent] = useState(false);
   const [isEnrolling, setIsEnrolling] = useState(false);
 
   const nextStep = () => {
-    if (step === 1 && bvn.length !== 11) {
-      Alert.alert('Validation Error', 'BVN must be exactly 11 digits.');
+    if (step === 1 && (bvn.length !== 11 || phoneNumber.length < 10)) {
+      Alert.alert('Validation Error', 'Enter a valid 11-digit BVN and phone number.');
       return;
     }
     if (step === 2 && (bankCode === '' || accountNumber.length !== 10)) {
@@ -55,7 +56,7 @@ export default function EnrollmentScreen() {
       const payload = {
         bvn,
         fullName: fullName || 'New User',
-        phoneNumber: '080' + Math.floor(Math.random() * 100000000), // Mock phone
+        phoneNumber,
         publicKey: credential.publicKey,
         bankAccounts: [{ bankCode, accountNumber, accountName: fullName || 'New User' }]
       };
@@ -93,6 +94,8 @@ export default function EnrollmentScreen() {
       {step === 1 && (
         <View style={styles.card}>
           <Text style={styles.stepTitle}>1. Identity Verification</Text>
+          <Text style={styles.label}>Phone Number</Text>
+          <TextInput placeholder="08012345678" style={styles.input} value={phoneNumber} onChangeText={setPhoneNumber} keyboardType="phone-pad" maxLength={15} />
           <Text style={styles.label}>Bank Verification Number (BVN)</Text>
           <TextInput 
             placeholder="00000000000" 
