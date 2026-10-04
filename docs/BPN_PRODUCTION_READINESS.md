@@ -66,3 +66,16 @@ This is the long-lived engineering plan for taking BPN from prototype/hackathon 
 
 ## Definition of production ready
 BPN is production-ready only when identity, authentication, payment rails, transaction state, security, privacy/compliance, reconciliation, reliability, operations, support and recovery have been validated with evidence in the intended production environment. A hackathon demo is not sufficient.
+
+## Temporary infrastructure / deployment
+- [ ] AWS Seller runtime restored or replaced with a usable deployment.
+- [ ] Backend deployed to a supported production/staging runtime with required PostgreSQL/Redis/secrets.
+- [ ] Physical-device biometric capture resumed after Seller runtime is available.
+- [ ] Backend runtime smoke tests and security negative tests executed in deployed environment.
+
+## Webhook and reconciliation
+- [x] Anchor webhook signature verification implemented against Anchor's documented HMAC-SHA1 scheme.
+- [x] Anchor webhook event idempotency guard implemented.
+- [ ] Live/sandbox Anchor webhook delivery verified.
+- [ ] Reconciliation job using authoritative Anchor status/verify-transfer endpoint.
+- [ ] Full reversal and dispute/recovery workflow.
