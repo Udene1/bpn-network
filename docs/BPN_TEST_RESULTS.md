@@ -138,3 +138,21 @@ Expected behavior: Product metrics must reflect stored transactions; session tok
 Observed behavior: Dashboard empty days now report zero volume; success rate is calculated from persisted COMPLETED transactions; invoice tokens use crypto.randomBytes.
 Result: PASS (source inspection only)
 Remaining risk: Backend compilation/runtime still requires CI execution.
+
+
+## 2026-10-04 — Physical-device capture preparation
+
+Commits: de5127f2, ca89507d, ec00fb90
+Environment: GitHub repository; source/configuration inspection only.
+Scope: Prepare seller Android app for real camera access and remove a synthetic buyer phone number from enrollment.
+Expected behavior:
+- Seller app has the camera dependency/configuration needed for a physical-device capture experiment.
+- Buyer enrollment uses a supplied phone number rather than generating fake contact data.
+Observed behavior:
+- expo-camera dependency and camera permission configuration are present in the seller app.
+- Buyer enrollment now requires and submits the entered phone number.
+Result: PASS (source/configuration inspection only)
+Remaining risk:
+- Camera capture UI has not yet been executed on either Infinix device.
+- No fingerprint image has been processed by the AFIS engine from a physical phone.
+- Cross-device identification, image quality, liveness/PAD and latency remain unverified.
