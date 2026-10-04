@@ -16,7 +16,8 @@ export class RedisService {
       this.connected = true;
       console.log('[Redis] Service Connected');
     } catch (err) {
-      console.error('[Redis] Connection Failed - Falling back to Mock', err);
+      console.error('[Redis] Connection Failed', err);
+      throw err;
     }
   }
 
