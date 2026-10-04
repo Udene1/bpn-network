@@ -581,253 +581,93 @@ fastify.post('/merchant/reverse-transaction', async (request, reply) => {
 });
 
 // ─── POST /webhook/anchor ──────────────────────────────────────
-// This endpoint receives transaction status updates from Anchor BaaS.
+// Anchor signs the exact raw JSON body with the webhook secret using
+// HMAC-SHA1 and sends the result as Base64(HMAC-SHA1-hexdigest) in
+// x-anchor-signature. See Anchor's webhook verification documentation.
 fastify.post('/webhook/anchor', async (request, reply) => {
-  const { event, data } = request.body as any;
-  
-  // In production, verify the webhook signature here:
-  // const sig = request.headers['x-anchor-signature'];
-  // if (!WebhookService.verify(request.rawBody, sig)) return reply.status(401).send();
+  const secret = process.env.ANCHOR_WEBHOOK_SECRET || process.env.BPN_ANCHOR_WEBHOOK_SECRET;
+  const signature = request.headers['x-anchor-signature'];
+  const rawBody = (request as any).rawBody as string | undefined;
 
-  if (event === 'transfer.updated') {
-    const { id, status } = data;
-    
-    // Map Anchor statuses to BPN statuses
-    const bpnStatus = status === 'successful' ? 'COMPLETED' : 'FAILED';
-    
-    try {
-      const transaction = await prisma.transaction.update({
-        where: { bankReference: id },
-        data: { status: bpnStatus },
-        include: { buyer: true }
-      });
-
-      if (transaction.buyer?.phoneNumber) {
-          await NotificationService.sendReceipt({
-              phoneNumber: transaction.buyer.phoneNumber,
-              amount: transaction.amount,
-              reference: transaction.bankReference || 'N/A',
-              status: bpnStatus === 'COMPLETED' ? 'SUCCESS' : 'FAILED'
-          });
-      }
-
-      request.log.info({ txnId: transaction.id, status: bpnStatus }, 'Transaction updated via webhook');
-    } catch (err: any) {
-      // Gracefully handle unknown/spoofed references — do NOT crash
-      request.log.warn({ ref: id, error: err.message }, 'Webhook reference not found — possible spoofing attempt');
-    }
+  if (!secret || typeof signature !== 'string' || !rawBody) {
+    return reply.status(503).send({ error: 'Anchor webhook verification is not configured' });
   }
 
-  return { received: true };
-});
+  const digestHex = crypto.createHmac('sha1', secret).update(rawBody, 'utf8').digest('hex');
+  const expected = Buffer.from(digestHex, 'utf8').toString('base64');
+  const supplied = Buffer.from(signature, 'utf8');
+  const expectedBytes = Buffer.from(expected, 'utf8');
 
-// ─── GET /health ─────────────────────────────────────────────
-fastify.get('/health', async (request, reply) => {
-  const dbStatus = await prisma.$queryRaw`SELECT 1`.then(() => 'UP').catch(() => 'DOWN');
-  const redisStatus = RedisService.isConnected() ? 'UP' : 'DOWN';
-  
-  const status = dbStatus === 'UP' && redisStatus === 'UP' ? 200 : 503;
-  return reply.status(status).send({
-    status: status === 200 ? 'HEALTHY' : 'UNHEALTHY',
-    database: dbStatus,
-    redis: redisStatus,
-    timestamp: new Date().toISOString()
-  });
-});
-
-// ─── GET /transactions ────────────────────────────────────────
-fastify.get('/transactions', async (request) => {
-  const transactions = await prisma.transaction.findMany({
-    orderBy: { createdAt: 'desc' },
-    take: 50,
-  });
-  return transactions;
-});
-
-// ─── Phase 7: Merchant Reporting & Compliance ────────────────
-
-/**
- * GET /merchant/stats
- * Aggregates transaction volume and user metrics for the dashboard.
- */
-fastify.get('/merchant/stats', async (request, reply) => {
-  try {
-    const transactions = await prisma.transaction.findMany({
-      where: { status: { in: ['COMPLETED'] } }, 
-    });
-    
-    const totalVolume = transactions.reduce((sum, tx) => sum + tx.amount, 0);
-    const activeUsers = await prisma.user.count();
-
-    // 7-day Revenue Breakdown
-    const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      return d.toISOString().split('T')[0];
-    }).reverse();
-
-    const chartData = last7Days.map(date => {
-      const dayVolume = transactions
-        .filter(tx => tx.createdAt.toISOString().split('T')[0] === date)
-        .reduce((sum, tx) => sum + tx.amount, 0);
-      return { date, volume: dayVolume };
-    });
-
-    return {
-      totalVolume,
-      activeUsers,
-      successRate: transactions.length > 0
-        ? `${((transactions.filter(tx => tx.status === 'COMPLETED').length / transactions.length) * 100).toFixed(1)}%`
-        : '0%',
-      chartData,
-      lastUpdate: new Date().toISOString()
-    };
-  } catch (error) {
-    request.log.error(error);
-    return reply.status(500).send({ 
-      error: 'Unable to retrieve merchant statistics. Please try again later.' 
-    });
-  }
-});
-
-/**
- * GET /merchant/transactions
- * Returns the most recent 10 transactions with integrated buyer data.
- */
-fastify.get('/merchant/transactions', async (request, reply) => {
-  try {
-    const { status, limit } = request.query as any;
-    const transactions = await prisma.transaction.findMany({
-      where: status ? { status: status.toUpperCase() } : {},
-      orderBy: { createdAt: 'desc' },
-      take: parseInt(limit) || 20,
-      include: { buyer: { include: { accounts: true } } }
-    });
-
-    return transactions.map(tx => ({
-      ...tx,
-      buyer: BiometricService.getMaskedBuyerProfile(tx.buyer)
-    }));
-  } catch (error) {
-    request.log.error(error);
-    return reply.status(500).send({ 
-      error: 'Failed to fetch transaction history. Check your network connection.' 
-    });
-  }
-});
-
-/**
- * GET /merchant/ndpr-export
- * Generates an NDPR-compliant CSV log of all biometric security events.
- */
-fastify.get('/merchant/ndpr-export', async (request, reply) => {
-  try {
-    const logs = await prisma.auditLog.findMany({
-      orderBy: { createdAt: 'desc' }
-    });
-
-    const csvHeaders = 'ID,User,Action,Details,Date\n';
-    const csvRows = logs.map(l => `${l.id},${l.userId},${l.action},${JSON.stringify(l.metadata)},${l.createdAt}`).join('\n');
-    
-    reply.header('Content-Type', 'text/csv');
-    reply.header('Content-Disposition', 'attachment; filename=ndpr_audit_export.csv');
-    return csvHeaders + csvRows;
-  } catch (error) {
-    request.log.error(error);
-    return reply.status(500).send({ 
-      error: 'Audit export failed. System logs are temporarily unavailable.' 
-    });
-  }
-});
-
-// ─── Phase 8: Recovery & Fallback ────────────────────────────
-
-/**
- * POST /lookup-buyer
- * Searches for a buyer by phone or partial BVN. 
- * Returns ONLY masked profile for POS confirmation.
- */
-fastify.post('/lookup-buyer', async (request, reply) => {
-  const { phoneNumber, partialBvn } = request.body as any;
-
-  if (!phoneNumber && !partialBvn) {
-    return reply.status(400).send({ error: 'Provide phone number or partial BVN' });
+  if (supplied.length !== expectedBytes.length || !crypto.timingSafeEqual(supplied, expectedBytes)) {
+    request.log.warn('Rejected Anchor webhook with invalid signature');
+    return reply.status(401).send({ error: 'Invalid webhook signature' });
   }
 
-  const user = await prisma.user.findFirst({
-    where: {
-      OR: [
-        phoneNumber ? { phoneNumber } : {},
-        partialBvn ? { bvn: { endsWith: partialBvn } } : {}
-      ]
-    },
-    include: { accounts: true }
+  const body = request.body as any;
+  const event = body?.data ?? body;
+  const eventId = event?.id;
+  const eventType = event?.type;
+
+  if (!eventId || !eventType) {
+    return reply.status(400).send({ error: 'Invalid Anchor webhook event' });
+  }
+
+  // Anchor can deliver events more than once. Only the first delivery of an
+  // event is allowed to mutate transaction state.
+  const firstDelivery = await RedisService.setIfAbsent(
+    `anchor:webhook:event:${eventId}`,
+    { type: eventType, receivedAt: new Date().toISOString() },
+    7 * 24 * 60 * 60,
+  );
+  if (!firstDelivery) return { received: true, duplicate: true };
+
+  const transferId = event?.relationships?.transfer?.data?.id;
+  if (!transferId) {
+    // Non-transfer events are authenticated and acknowledged but do not alter
+    // BPN payment state.
+    return { received: true };
+  }
+
+  let bpnStatus: 'PENDING' | 'COMPLETED' | 'FAILED' | 'VOIDED' | null = null;
+  if (eventType.endsWith('.initiated')) bpnStatus = 'PENDING';
+  else if (eventType.endsWith('.successful')) bpnStatus = 'COMPLETED';
+  else if (eventType.endsWith('.failed')) bpnStatus = 'FAILED';
+  else if (eventType.endsWith('.reversed')) bpnStatus = 'VOIDED';
+
+  if (!bpnStatus) return { received: true };
+
+  const transaction = await prisma.transaction.findUnique({
+    where: { bankReference: transferId },
+    include: { buyer: true },
   });
 
-  if (!user) return reply.status(404).send({ error: 'Buyer not found' });
+  if (!transaction) {
+    request.log.warn({ transferId, eventId, eventType }, 'Anchor webhook reference not found');
+    return { received: true };
+  }
 
-  return {
-    status: 'SUCCESS',
-    buyer: BiometricService.getMaskedBuyerProfile(user)
-  };
-});
+  // Final states cannot be downgraded by a delayed initiated event.
+  const finalStates = new Set(['COMPLETED', 'FAILED', 'VOIDED']);
+  if (finalStates.has(transaction.status) && bpnStatus === 'PENDING') {
+    return { received: true, status: transaction.status };
+  }
 
-/**
- * POST /verify-pin
- * Validates a buyer's PIN after a successful lookup.
- */
-fastify.post('/verify-pin', async (request, reply) => {
-  const { sessionToken, pin, phoneNumber } = request.body as any;
-
-  const session = await RedisService.get(`session:${sessionToken}`);
-  if (!session) return reply.status(404).send({ error: 'Session expired' });
-
-  const user = await prisma.user.findUnique({
-    where: { phoneNumber },
-    include: { accounts: true }
+  const updated = await prisma.transaction.update({
+    where: { id: transaction.id },
+    data: { status: bpnStatus },
   });
 
-  if (!user || !user.pinHash || user.pinHash !== pin) { 
-    await AuditService.log({
-      action: 'PIN_VERIFICATION_FAILURE',
-      userId: user?.id,
-      metadata: { sessionToken },
-      request
+  if (updated.buyer?.phoneNumber) {
+    await NotificationService.sendReceipt({
+      phoneNumber: updated.buyer.phoneNumber,
+      amount: updated.amount,
+      reference: updated.bankReference || 'N/A',
+      status: bpnStatus === 'COMPLETED' ? 'SUCCESS' : 'FAILED',
     });
-    return reply.status(401).send({ error: 'Invalid PIN' });
   }
 
-  await AuditService.log({
-    action: 'PIN_VERIFICATION_SUCCESS',
-    userId: user.id,
-    metadata: { sessionToken },
-    request
-  });
-
-  // Authorize transaction (Reuse mandate flow)
-  const mainAccount = user.accounts[0];
-  if (!mainAccount || !mainAccount.mandateId) {
-      return reply.status(400).send({ error: 'No active direct debit mandate found for this account.' });
-  }
-
-  const result = await PaymentService.executeMandatePayment({
-    amount: session.amount,
-    mandateId: mainAccount.mandateId,
-    narration: `BPN PIN Recovery Payment – Session ${sessionToken}`,
-  });
-
-  const txn = await prisma.transaction.create({
-    data: {
-      buyerId: user.id,
-      amount: session.amount,
-      sellerId: session.sellerId,
-      status: result.status === 'COMPLETED' || result.status === 'successful' ? 'COMPLETED' : result.status === 'FAILED' || result.status === 'failed' ? 'FAILED' : 'PENDING',
-      bankReference: result.reference,
-    },
-  });
-
-  await RedisService.del(`session:${sessionToken}`);
-  return { status: txn.status, reference: txn.bankReference };
+  request.log.info({ txnId: updated.id, status: bpnStatus, eventId, eventType }, 'Anchor webhook applied');
+  return { received: true, status: bpnStatus };
 });
 
 // ─── Server Start ─────────────────────────────────────────────
