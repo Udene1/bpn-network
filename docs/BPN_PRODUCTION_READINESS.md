@@ -79,3 +79,14 @@ BPN is production-ready only when identity, authentication, payment rails, trans
 - [ ] Live/sandbox Anchor webhook delivery verified.
 - [ ] Reconciliation job using authoritative Anchor status/verify-transfer endpoint.
 - [ ] Full reversal and dispute/recovery workflow.
+
+## Backend deployment migration
+- [x] Vercel project created for `services/backend` and linked to GitHub main.
+- [x] Node 24 target configured.
+- [ ] Configure production DATABASE_URL.
+- [ ] Configure production REDIS_URL.
+- [ ] Configure JWT_SECRET.
+- [ ] Configure BPN_MERCHANT_API_KEY.
+- [ ] Configure Anchor API/webhook secrets.
+- [ ] Configure BPN biometric engine URL/assertion secret.
+- [ ] Execute deployed runtime smoke/security tests.
