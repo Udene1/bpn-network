@@ -27,21 +27,13 @@
         {
           "faceIDPermission": "Allow BPN to use biometrics to secure payments."
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow BPN to capture fingerprint images for experimental biometric testing."
+        }
       ]
     ]
-  },
-  "plugins": [
-    [
-      "expo-local-authentication",
-      {
-        "faceIDPermission": "Allow BPN to use biometrics to secure payments."
-      }
-    ],
-    [
-      "expo-camera",
-      {
-        "cameraPermission": "Allow BPN to capture fingerprint images for experimental biometric testing."
-      }
-    ]
-  ]
+  }
 }
