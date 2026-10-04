@@ -11,6 +11,7 @@ import { RedisService } from './services/redis.service.js';
 import { FraudService } from './services/fraud.service.js';
 import { BpnCredentialService } from './services/bpn-credential.service.js';
 import { BpnAuthorizationService } from './services/bpn-authorization.service.js';
+import { getBpnBiometricProvider } from './services/bpn-biometric-provider.factory.js';
 
 const fastify = Fastify({ logger: true });
 await fastify.register(cors, { origin: true });
@@ -29,7 +30,7 @@ fastify.addHook('preHandler', async (request, reply) => {
     return reply.status(429).send({ error: 'Too many requests. Please try again later.' });
   }
 
-  const publicRoutes = ['/invoice', '/login', '/health', '/webhook/anchor', '/enroll', '/mandate/callback', '/lookup-buyer', '/merchant/reverse-transaction', '/verify-pin', '/match-and-pay'];
+  const publicRoutes = ['/invoice', '/login', '/health', '/webhook/anchor', '/enroll', '/mandate/callback', '/lookup-buyer', '/merchant-assisted-enroll', '/merchant/reverse-transaction', '/verify-pin', '/match-and-pay'];
   if (publicRoutes.includes(request.routerPath)) return;
 
   const authHeader = request.headers.authorization;
@@ -69,6 +70,99 @@ fastify.post('/login', async (request) => {
   const { phoneNumber } = request.body as any;
   const token = AuthService.generateToken({ phoneNumber });
   return { token };
+});
+
+// ─── POST /merchant-assisted-enroll ───────────────────────────
+// Exceptional enrollment path for buyers who do not have a phone or cannot
+// complete self-enrollment. The merchant device captures the real fingerprint;
+// the raw image is forwarded only to the configured biometric provider and is
+// not persisted by BPN. Bank mandate authorization remains a separate step.
+const assistedEnrollSchema = {
+  body: {
+    type: 'object',
+    required: ['bvn', 'fullName', 'bankAccounts', 'capture'],
+    properties: {
+      bvn: { type: 'string', minLength: 11, maxLength: 11 },
+      fullName: { type: 'string', minLength: 2 },
+      phoneNumber: { type: 'string' },
+      bankAccounts: { type: 'array', minItems: 1 },
+      capture: {
+        type: 'object',
+        required: ['imageBase64'],
+        properties: { imageBase64: { type: 'string', minLength: 100 }, imageMime: { type: 'string' } }
+      },
+      merchantId: { type: 'string' },
+      consent: { type: 'boolean' }
+    }
+  }
+};
+fastify.post('/merchant-assisted-enroll', { schema: assistedEnrollSchema }, async (request, reply) => {
+  const { bvn, fullName, phoneNumber, bankAccounts, capture, merchantId, consent } = request.body as any;
+  if (!consent) return reply.status(400).send({ error: 'Explicit biometric enrollment consent is required' });
+  if (!bvn || bvn.length !== 11) return reply.status(400).send({ error: 'Invalid BVN (must be 11 digits)' });
+  if (!Array.isArray(bankAccounts) || bankAccounts.length === 0) return reply.status(400).send({ error: 'At least one bank account is required' });
+
+  const userId = crypto.randomUUID();
+  try {
+    const provider = getBpnBiometricProvider();
+    const biometric = await provider.enroll({
+      userId,
+      modality: 'FINGERPRINT',
+      capture: { imageBase64: capture.imageBase64, imageMime: capture.imageMime ?? 'image/jpeg' }
+    });
+
+    const user = await prisma.user.create({
+      data: {
+        id: userId,
+        bvn,
+        fullName,
+        phoneNumber: phoneNumber || null,
+        enrollmentMethod: 'MERCHANT_ASSISTED',
+        accounts: {
+          create: bankAccounts.map((acc: any, index: number) => ({
+            bankCode: acc.bankCode,
+            accountNumber: acc.accountNumber,
+            accountName: acc.accountName || fullName,
+            isDefault: index === 0,
+          }))
+        }
+      },
+      include: { accounts: true }
+    });
+
+    await AuditService.log({
+      action: 'BIOMETRIC_ENROLLMENT_COMPLETED',
+      userId: user.id,
+      metadata: {
+        method: 'MERCHANT_ASSISTED',
+        merchantId: merchantId || null,
+        provider: biometric.provider,
+        providerReference: biometric.providerReference,
+        rawCapturePersisted: false,
+      },
+      request
+    });
+
+    const mainAccount = user.accounts[0];
+    let redirectUrl: string | undefined;
+    if (mainAccount) {
+      const mandate = await PaymentService.setupMandate(mainAccount.accountNumber, mainAccount.bankCode);
+      await prisma.bankAccount.update({ where: { id: mainAccount.id }, data: { mandateId: mandate.mandateId } });
+      redirectUrl = mandate.redirectUrl;
+    }
+
+    return {
+      status: 'SUCCESS',
+      userId: user.id,
+      enrollmentMethod: user.enrollmentMethod,
+      provider: biometric.provider,
+      providerReference: biometric.providerReference,
+      mandate: { required: true, redirectUrl },
+    };
+  } catch (err: any) {
+    request.log.error({ err: err.message, userId }, 'Merchant-assisted enrollment failed');
+    return reply.status(502).send({ error: 'Merchant-assisted biometric enrollment is unavailable' });
+  }
 });
 
 // ─── POST /enroll ─────────────────────────────────────────────
