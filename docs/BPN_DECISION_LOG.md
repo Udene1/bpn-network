@@ -95,3 +95,13 @@ Before selecting a production SDK, compare candidates against:
 - privacy/data residency implications
 - ability to operate on ordinary Android phones
 - suitability for regulated financial payments
+
+
+## Decision 009 — IDEMIA is the leading technical candidate, not yet selected
+
+**Date:** 2026-10-04  
+**Decision:** IDEMIA Capture SDK is the leading candidate for the first real biometric POC because its official documentation explicitly describes fingerprint capture using an ordinary smartphone camera, liveness, template extraction, and 1:N identification on Android/iOS.
+
+**Important qualification:** This is a technical-candidate decision, not a vendor selection. The SDK requires controlled distribution/licensing and native integration. We will not add vendor code, credentials, or invented APIs until legitimate SDK access is obtained.
+
+**Selection gate:** same-person cross-device identification, liveness/PAD evidence, assertion/integrity model, gallery architecture, template protection, latency, device compatibility, licensing and privacy/security review must all pass before the provider is marked selected.
