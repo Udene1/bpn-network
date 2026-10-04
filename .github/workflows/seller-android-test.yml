@@ -1,0 +1,38 @@
+name: BPN Seller Android Test APK
+
+on:
+  push:
+    paths:
+      - 'apps/seller/**'
+      - '.github/workflows/seller-android-test.yml'
+  workflow_dispatch:
+
+jobs:
+  build-android-test-apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/seller
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/seller/package.json
+      - name: Install JavaScript dependencies
+        run: npm install
+      - name: Generate native Android project
+        run: npx expo prebuild --platform android --non-interactive --no-install
+      - name: Build installable Android test APK
+        working-directory: apps/seller/android
+        run: ./gradlew assembleDebug --no-daemon
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: bpn-seller-android-debug
+          path: apps/seller/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
