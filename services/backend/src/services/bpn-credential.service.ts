@@ -6,13 +6,14 @@ export type BpnAuthorizationPayload = {
   credentialId: string;
   sellerId: string;
   amount: number;
+  accountId?: string;
 };
 
 export type BpnAuthorizationProof = BpnAuthorizationPayload & { signature: string };
 
 export class BpnCredentialService {
   static buildAuthorizationPayload(input: Omit<BpnAuthorizationPayload, 'version'>): string {
-    return JSON.stringify({ version: 'BPN-AUTH-1', sessionToken: input.sessionToken, credentialId: input.credentialId, sellerId: input.sellerId, amount: input.amount });
+    return JSON.stringify({ version: 'BPN-AUTH-1', sessionToken: input.sessionToken, credentialId: input.credentialId, sellerId: input.sellerId, amount: input.amount, ...(input.accountId ? { accountId: input.accountId } : {}) });
   }
 
   static verifyAuthorizationProof(publicKey: string, proof: BpnAuthorizationProof): boolean {
