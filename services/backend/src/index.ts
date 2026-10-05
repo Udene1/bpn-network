@@ -48,6 +48,15 @@ fastify.addContentTypeParser('application/json', { parseAs: 'string' }, function
 
 // ─── Rate Limiting & Auth Middleware ──────────────────────────
 fastify.addHook('preHandler', async (request, reply) => {
+  // Liveness/readiness probes must remain observable even when Redis is not configured.
+  if (request.routerPath === '/health' || request.routerPath === '/health/db') return;
+
+  // Redis is a required operational dependency. Fail closed rather than silently
+  // running sessions, rate limits, or idempotency without it.
+  if (!RedisService.isConnected()) {
+    return reply.status(503).send({ error: 'Operational dependencies unavailable', dependency: 'redis' });
+  }
+
   // Granular Rate Limiting (20 requests/minute per IP)
   const ip = request.ip;
   const route = request.routerPath || 'unknown';
@@ -693,7 +702,11 @@ fastify.post('/webhook/anchor', async (request, reply) => {
 // ─── Server Start ─────────────────────────────────────────────
 const start = async () => {
   try {
-    await RedisService.init();
+    try {
+      await RedisService.init();
+    } catch (redisError) {
+      fastify.log.error({ err: redisError }, 'Redis unavailable; operational routes will remain fail-closed');
+    }
     await fastify.listen({ port: 3000, host: '0.0.0.0' });
     console.log('BPN Backend running on http://localhost:3000');
   } catch (err) {
