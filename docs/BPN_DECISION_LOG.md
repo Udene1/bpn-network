@@ -196,3 +196,14 @@ Decision: When a buyer has multiple linked bank accounts, the selected funding a
 Reason: BPN must not display one account to the customer and debit another account because of backend defaulting or race conditions.
 
 Constraint: If no account is explicitly selected, the current default-account policy may be used. If an account is selected, it must belong to the credential owner and have a usable mandate before payment execution.
+
+
+## Decision 018 — Redis remains mandatory; health probes must stay observable while it is unavailable
+
+Date: 2026-10-05
+
+Decision: Redis is still a required operational dependency for sessions, rate limiting and idempotency. If Redis is unavailable, those operational routes must fail closed with HTTP 503 rather than silently falling back. Liveness and database-readiness probes are exempt so infrastructure diagnosis can continue.
+
+Reason: BPN must be able to distinguish “Neon/Prisma is healthy” from “Redis is unavailable” without weakening payment/security behavior.
+
+Constraint: This does not make the backend production-ready. A legitimate Redis deployment must be configured and verified before payment/session flows are considered operational.
