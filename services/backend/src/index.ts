@@ -110,7 +110,7 @@ fastify.get('/health', async () => ({ ok: true, service: 'bpn-backend' }));
 // PostgreSQL database. No schema/data is exposed.
 fastify.get('/health/db', async (request, reply) => {
   try {
-    await prisma.$queryRaw\`SELECT 1\`;
+    await prisma.$queryRaw`SELECT 1`;
     return { ok: true, service: 'bpn-backend', database: 'reachable', orm: 'prisma' };
   } catch (error) {
     request.log.error({ err: error }, 'Database readiness check failed');
