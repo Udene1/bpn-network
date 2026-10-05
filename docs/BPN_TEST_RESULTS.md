@@ -397,3 +397,25 @@ Correction:
 Result: BUILD PASS / DEPLOY PASS / DATABASE RUNTIME UNVERIFIED / REDIS BLOCKED.
 
 Next test: redeploy, invoke `/health/db` again, then configure a legitimate Redis deployment and repeat operational smoke tests.
+
+
+## 2026-10-05 — Prisma → Neon production runtime verification
+
+Deployment: `dpl_BmN16pTQDcHjcGsPiCacy5UT3RjB`  
+URL: `bpn-backend-aiqc4628t-udenes-projects-8089646b.vercel.app`
+
+Method:
+- invoked the deployed `GET /health/db` endpoint;
+- endpoint executes a real Prisma `$queryRaw` `SELECT 1`;
+- production environment is backed by the connected Neon integration.
+
+Observed:
+`HTTP 200` with:
+`{"ok":true,"service":"bpn-backend","database":"reachable","orm":"prisma"}`
+
+Result: **PASS — Prisma can reach Neon from the deployed BPN backend.**
+
+Important boundary:
+- This verifies database connectivity only.
+- Redis is still not configured, so operational routes remain fail-closed.
+- Anchor credentials/webhook secret and biometric assertion secret are still required before payment/biometric runtime can be considered operational.
