@@ -101,6 +101,23 @@ fastify.setErrorHandler((error, request, reply) => {
   reply.send(error);
 });
 
+// ─── GET /health ───────────────────────────────────────────────
+// Liveness only: confirms the Fastify process is serving requests.
+fastify.get('/health', async () => ({ ok: true, service: 'bpn-backend' }));
+
+// ─── GET /health/db ────────────────────────────────────────────
+// Readiness probe that performs a real Prisma query against the configured
+// PostgreSQL database. No schema/data is exposed.
+fastify.get('/health/db', async (request, reply) => {
+  try {
+    await prisma.$queryRaw\`SELECT 1\`;
+    return { ok: true, service: 'bpn-backend', database: 'reachable', orm: 'prisma' };
+  } catch (error) {
+    request.log.error({ err: error }, 'Database readiness check failed');
+    return reply.status(503).send({ ok: false, service: 'bpn-backend', database: 'unreachable', orm: 'prisma' });
+  }
+});
+
 // ─── POST /login ──────────────────────────────────────────────
 fastify.post('/login', async (request) => {
   const { phoneNumber } = request.body as any;
