@@ -367,3 +367,33 @@ Observed: Workflow configuration committed successfully. Execution is pending; n
 Result: IMPLEMENTED / EXECUTION UNVERIFIED.
 
 Remaining risk: Expo/Gradle compatibility, Android build time, camera runtime behavior and network reachability to the Vercel biometric engine remain unverified.
+
+
+## 2026-10-05 — Vercel backend build/runtime verification
+
+Commits: 84c26a4, 6deeea2, 70631a3
+
+Environment: Vercel production, project `bpn-backend`.
+
+Scope:
+- deploy the Prisma database readiness probe;
+- verify the production build;
+- invoke the real `/health/db` endpoint;
+- diagnose runtime startup failure.
+
+Observed:
+- Deployment `dpl_4XsrtZYidEeDD6AJofaR1xu7hc4J` initially failed at TypeScript compilation because the readiness probe had literal escaped backticks in `src/index.ts`.
+- The compiler reported TS1127/TS1005/TS1434 errors and an unterminated template literal.
+- Commit `6deeea2250bd77401a547c09859c6695981d7ca5` corrected the probe syntax.
+- Deployment `dpl_3YYsFRySP6gpFdW5QcYPsyK4xA3f` then reached READY and received the production aliases, including `bpn-backend-one.vercel.app`.
+- A real request to `/health/db` reached the deployed function but returned Vercel `FUNCTION_INVOCATION_FAILED`.
+- Vercel environment inspection shows Neon integration variables, including `DATABASE_URL` and `POSTGRES_PRISMA_URL`, are present for production.
+- No `REDIS_URL` is configured. The backend currently initializes Redis during startup, so the missing Redis dependency prevents the function from completing startup before the Prisma probe can execute.
+
+Correction:
+- Commit `70631a3cfc4001d937952b10a23de427c1791c64` keeps liveness/readiness probes reachable when Redis is unavailable.
+- Operational routes remain fail-closed with HTTP 503 while Redis is disconnected; the change does not silently enable sessions, rate limiting, idempotency or payment flows without Redis.
+
+Result: BUILD PASS / DEPLOY PASS / DATABASE RUNTIME UNVERIFIED / REDIS BLOCKED.
+
+Next test: redeploy, invoke `/health/db` again, then configure a legitimate Redis deployment and repeat operational smoke tests.
